@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 // Where footprints come from. KiCad's official library is a public git

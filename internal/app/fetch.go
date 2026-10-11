@@ -18,14 +18,14 @@ import (
 
 	"golang.org/x/net/html"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 const (
 	maxPageBytes = 2 << 20 // enough for any product page's <head>
 	fetchTimeout = 15 * time.Second
 	maxRedirects = 5
-	userAgent    = "Backoffice/1.0 (self-hosted inventory; +https://github.com/2008wbbv/backoffice)"
+	userAgent    = "Backoffice/1.0 (self-hosted inventory; +https://github.com/bnvac/backoffice)"
 )
 
 // Fetcher pulls pages and images from the internet on the server's behalf.

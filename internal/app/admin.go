@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 // Everything an operator needs to answer two questions: is this install

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 type modelSearchData struct {
@@ -282,4 +284,104 @@ func (a *App) handleRemoteImage(w http.ResponseWriter, r *http.Request) {
 	// A cache that cannot be written is not worth failing the request over.
 	a.photos.CacheRemote(u.String(), body)
 	serve(body)
+}
+
+// --- searching prints on their own ------------------------------------------
+
+// The per-item case search starts from a part and guesses the words. This one
+// starts from nothing: a plain search box for when you just want a bracket, a
+// knob or a drawer insert, with no part on the shelf to hang it off.
+
+type printSearchData struct {
+	Query     string
+	Results   []ModelResult
+	Notes     []string
+	Sources   []string
+	Elsewhere []ExternalModelSource
+	Items     []Item // to hang a result off, if you want to keep one
+	Searched  bool
+	Caps      Capabilities
+}
+
+func (a *App) handlePrints(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	data := printSearchData{
+		Query:     query,
+		Sources:   a.models.Sources(),
+		Elsewhere: ExternalModelSources(query),
+		Searched:  query != "",
+	}
+	if tools, err := a.store.ListTools(); err == nil {
+		data.Caps = SummariseTools(tools)
+	}
+	if query != "" {
+		report := a.models.Search(r.Context(), query, 24)
+		data.Results, data.Notes = report.Results, report.Notes
+		// Only needed once there is something to keep.
+		if items, err := a.store.ListItems(Query{Sort: "name"}); err == nil {
+			data.Items = items
+		}
+	}
+	title := "Prints"
+	if query != "" {
+		title = query
+	}
+	a.render(w, r, "prints.html", title, data)
+}
+
+// handleKeepPrint hangs a result found here off a part, reusing the same
+// attach path the per-item search uses so a kept print behaves identically
+// however it was found.
+func (a *App) handleKeepPrint(w http.ResponseWriter, r *http.Request) {
+	if err := parseForm(r); err != nil {
+		a.fail(w, err, http.StatusBadRequest)
+		return
+	}
+	back := "/prints"
+	if q := strings.TrimSpace(r.FormValue("q")); q != "" {
+		back += "?q=" + url.QueryEscape(q)
+	}
+	itemID, err := strconv.ParseInt(r.FormValue("item_id"), 10, 64)
+	if err != nil || itemID <= 0 {
+		redirect(w, r, back, "", "pick which part this is for")
+		return
+	}
+	it, err := a.store.GetItem(itemID)
+	if err != nil {
+		redirect(w, r, back, "", "that part is not on the shelf any more")
+		return
+	}
+
+	m := Model{
+		ItemID:  itemID,
+		Source:  strings.TrimSpace(r.FormValue("source")),
+		Title:   strings.TrimSpace(r.FormValue("title")),
+		URL:     strings.TrimSpace(r.FormValue("url")),
+		Author:  strings.TrimSpace(r.FormValue("author")),
+		Licence: strings.TrimSpace(r.FormValue("licence")),
+	}
+	if m.URL == "" {
+		redirect(w, r, back, "", "that result has no link")
+		return
+	}
+	if m.Title == "" {
+		m.Title = "Model"
+	}
+	if m.Source == "" {
+		m.Source = sourceFromURL(m.URL)
+	}
+	// Same as the per-item path: the picture is a nicety, not a requirement.
+	if img := strings.TrimSpace(r.FormValue("image_url")); img != "" {
+		if body, err := a.fetcher.FetchImage(r.Context(), img); err == nil {
+			if name, err := a.photos.Save(bytes.NewReader(body), lastPathSegment(img)); err == nil {
+				m.Thumb = name
+			}
+		}
+	}
+	if _, err := a.store.AddModel(m); err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	a.store.Record(a.actor(r), "kept a model", "item", itemID, m.Source+": "+m.Title)
+	redirect(w, r, back, "Kept "+m.Title+" against "+it.Name, "")
 }

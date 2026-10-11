@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 // --- STL parsing ------------------------------------------------------------

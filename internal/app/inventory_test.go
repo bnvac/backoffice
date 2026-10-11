@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 func newTestApp(t *testing.T) *App {

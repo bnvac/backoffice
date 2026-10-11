@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 // page carries everything the layout template needs on every render.

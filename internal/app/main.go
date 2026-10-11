@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/2008wbbv/backoffice/internal/media"
+	"github.com/bnvac/backoffice/internal/media"
 )
 
 //go:embed templates/*.html
@@ -336,6 +336,9 @@ func (a *App) routes() http.Handler {
 	protected.HandleFunc("POST /items/{id}/footprint", a.handleSetFootprint)
 
 	// Cases and mounts somebody has already printed.
+	// Prints: the per-item case hunt, and a plain search for everything else.
+	protected.HandleFunc("GET /prints", a.handlePrints)
+	protected.HandleFunc("POST /prints/keep", a.handleKeepPrint)
 	protected.HandleFunc("GET /items/{id}/models", a.handleModelSearch)
 	protected.HandleFunc("POST /items/{id}/models", a.handleAttachModel)
 	protected.HandleFunc("POST /models/{id}/mesh", a.handleModelMesh)
