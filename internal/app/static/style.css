@@ -5,6 +5,11 @@
    from the account menu overrides both by stamping data-theme on <html>.
    Defining light only inside the media query would make the toggle one-way. */
 
+/* The accent is the text colour. Nothing in the chrome is tinted: a primary
+   action is a solid block of ink, a selected thing is a wash of it. That frees
+   colour up to mean only one thing — stock state, and whether something is
+   wrong — which is why --danger and --ok keep their hues. */
+
 :root {
   --bg: #13151a;
   --panel: #1a1d24;
@@ -12,16 +17,24 @@
   --line: #2b3038;
   --text: #e7e9ef;
   --muted: #98a1b2;
-  --accent: #7aa2f7;
-  --accent-ink: #0b1020;
+  --accent: #e7e9ef;
+  --accent-ink: #13151a;
   --danger: #f4776b;
   --ok: #56cc85;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --gap: 14px;
-  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
-  --shadow: 0 1px 2px rgb(0 0 0 / .28), 0 6px 18px rgb(0 0 0 / .18);
+  /* Soft corners, tight spacing. */
+  --radius: 9px;
+  --radius-sm: 7px;
+  --gap: 8px;
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 20px -6px rgb(0 0 0 / .45);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / .42), 0 14px 30px -8px rgb(0 0 0 / .55);
+
+  /* Serif for titles, the UI face for anything you read as a label or a
+     number. No webfont: the binary has to work on a LAN with no internet. */
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+             Georgia, "Times New Roman", serif;
 }
 
 @media (prefers-color-scheme: light) {
@@ -32,11 +45,12 @@
     --line: #e0e4ec;
     --text: #171a21;
     --muted: #5c6675;
-    --accent: #2f6feb;
+    --accent: #171a21;
     --accent-ink: #ffffff;
     --danger: #cf3520;
     --ok: #17804a;
-    --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 6px 16px rgb(16 24 40 / .07);
+    --shadow: 0 1px 2px rgb(16 24 40 / .07), 0 6px 16px -4px rgb(16 24 40 / .1);
+    --shadow-lift: 0 2px 5px rgb(16 24 40 / .09), 0 12px 26px -8px rgb(16 24 40 / .16);
   }
 }
 
@@ -47,11 +61,12 @@
   --line: #e0e4ec;
   --text: #171a21;
   --muted: #5c6675;
-  --accent: #2f6feb;
+  --accent: #171a21;
   --accent-ink: #ffffff;
   --danger: #cf3520;
   --ok: #17804a;
-  --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 6px 16px rgb(16 24 40 / .07);
+  --shadow: 0 1px 2px rgb(16 24 40 / .07), 0 6px 16px -4px rgb(16 24 40 / .1);
+  --shadow-lift: 0 2px 5px rgb(16 24 40 / .09), 0 12px 26px -8px rgb(16 24 40 / .16);
 }
 
 * { box-sizing: border-box; }
@@ -63,25 +78,42 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.55 var(--ui);
   -webkit-text-size-adjust: 100%;
 }
 
-/* A quieter heading scale. The old one jumped straight from body text to a
-   very large h1, which is most of what made pages feel shouty. */
-h1 { font-size: 25px; line-height: 1.25; letter-spacing: -.015em; margin: 2px 0 10px; }
-h2 { font-size: 17px; line-height: 1.3; letter-spacing: -.008em; margin: 28px 0 10px; }
-h3 { font-size: 14.5px; margin: 16px 0 6px; }
-p { margin: 0 0 12px; }
+/* Titles are set in the serif, a size up from the body text and with no
+   negative tracking — a serif squeezed tight stops reading as one. Labels and
+   numbers stay in the UI face; the overrides for those are further down. */
+h1, h2, h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+h1 { font-size: 24px; line-height: 1.2; margin: 2px 0 8px; }
+h2 { font-size: 18px; line-height: 1.25; margin: 22px 0 8px; }
+h3 { font-size: 15px; margin: 13px 0 5px; }
+p { margin: 0 0 10px; }
 /* Long prose stops at a readable measure. Deliberately not applied to li,
    which is a layout element here as often as it is a sentence. */
 p, .lede { max-width: 78ch; }
 /* ...except inside cards and panels, where the container already sets it. */
 .card p, .idea p, .panel p, td p { max-width: none; }
 
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-main { max-width: 1180px; margin: 0 auto; padding: 22px 16px 72px; }
+/* With no accent hue, a link in running text has nothing but an underline to
+   mark it, so it gets one by default. Links that are really controls draw
+   their own affordance and opt out; :where() keeps that list at zero
+   specificity so a component can still override it. */
+a { color: var(--text); text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--text) 32%, transparent);
+    text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--text); }
+a:where(.btn, .chip, .brand, .tile, .skip, .card, .thumb, .name, .row-item,
+        .maker, .ta-row, .folder-card > a, .menu-panel a, .crumb a, .steps a,
+        .grid a, .rows a, .folders a, .makers a, .model-list a, .tools a) {
+  text-decoration: none;
+}
+main { max-width: 1180px; margin: 0 auto; padding: 16px 14px 56px; }
 main:focus { outline: none; }
 
 /* One focus ring for everything, and only for keyboard users. Several
@@ -116,12 +148,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 16px;
+  padding: 7px 14px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 650; letter-spacing: -.01em; color: var(--text); }
+.brand { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--text); }
 .brand:hover { text-decoration: none; }
 .topbar nav { display: flex; gap: 6px; align-items: center; }
 .topbar nav form { margin: 0; }
@@ -129,12 +161,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 /* --- buttons --- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px 13px;
+  padding: 6px 11px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--panel); color: var(--text);
-  font: inherit; font-size: 14px; line-height: 1.1;
-  /* Every control is at least a comfortable tap target. */
-  min-height: 34px;
+  font: inherit; font-size: 13.5px; line-height: 1.1;
+  min-height: 30px;
   cursor: pointer; white-space: nowrap;
   transition: background .12s, border-color .12s;
 }
@@ -145,7 +176,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .btn.ghost { background: transparent; }
 .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
 .btn.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
-.btn.tiny { padding: 5px 9px; font-size: 13px; border-radius: 7px; min-height: 28px; }
+.btn.tiny { padding: 4px 8px; font-size: 12.5px; border-radius: 6px; min-height: 26px; }
+
+/* Tight is a desktop setting. On a touch screen the controls go back to a
+   size you can actually hit, which matters most for the count buttons. */
+@media (pointer: coarse) {
+  .btn { min-height: 38px; padding: 9px 13px; }
+  .btn.tiny { min-height: 32px; padding: 7px 11px; font-size: 13px; }
+  .qty .btn, .qtybox .btn { min-width: 40px; min-height: 40px; }
+}
 /* The current section reads as selected rather than merely hovered. */
 .btn.ghost.on {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -162,14 +201,18 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .toast.bad { background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
 
 /* --- search + filters --- */
-.search { display: flex; gap: 8px; margin: 4px 0 14px; }
+.search { display: flex; gap: 7px; margin: 3px 0 10px; }
 .search input[type=search] {
-  flex: 1; padding: 11px 14px;
+  flex: 1; padding: 9px 12px;
   background: var(--panel); color: var(--text);
   border: 1px solid var(--line); border-radius: 10px; font: inherit;
 }
+/* The search box is autofocused, so this ring is on screen the moment the page
+   loads. At full strength an ink accent makes it the loudest thing on the
+   page; held back it still clears 3:1 against the panel. */
 .search input:focus, .field input:focus, .field textarea:focus {
-  outline: 2px solid var(--accent); outline-offset: -1px;
+  outline: 2px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  outline-offset: -1px;
 }
 
 .filters { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
@@ -183,30 +226,48 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   color: var(--text); font-size: 13px;
 }
 .chip:hover { background: var(--panel-2); text-decoration: none; }
-.chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+/* A filter is state, not an action. Solid ink is reserved for the one thing on
+   the page you press, so a chosen chip is a wash of ink instead — otherwise
+   "Recent" shouts as loudly as "Add". */
+.chip.on {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  color: var(--text); font-weight: 600;
+}
 .chip .n { color: var(--muted); font-size: 12px; }
-.chip.on .n { color: inherit; opacity: .75; }
+.chip.on .n { color: var(--text); opacity: .7; }
 .chip.sm { padding: 4px 9px; font-size: 12.5px; }
 
 .bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13.5px; }
 .sorts { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* --- item grid --- */
+/* A shadow needs more room than a border does: at the base gap the blur from
+   one card lands on the next one and the grid looks smudged. */
 .grid {
   list-style: none; margin: 0; padding: 0;
-  display: grid; gap: var(--gap);
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  display: grid; gap: calc(var(--gap) + 5px);
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
 }
-.card {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); overflow: hidden;
-  display: flex; flex-direction: column;
-}
-.card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 
+/* Cards are lifted off the page rather than outlined. The border stays in the
+   box model as a transparent one so hover doesn't shift the layout by a pixel. */
+.card {
+  background: var(--panel); border: 1px solid transparent;
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+  padding: 5px;
+  transition: box-shadow .12s;
+}
+.card:hover { box-shadow: var(--shadow-lift); }
+
+/* The photo sits inside the card with its own corners, so the card edge reads
+   as the object and the image reads as something on it. */
 .thumb {
   position: relative; display: block; aspect-ratio: 1 / 1;
   background: var(--panel-2);
+  border-radius: calc(var(--radius) - 4px); overflow: hidden;
 }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb .count {
@@ -221,8 +282,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .noimg.big { aspect-ratio: 4 / 3; border-radius: var(--radius); background: var(--panel-2); font-size: 54px; }
 
-.card .body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.card .name { color: var(--text); font-weight: 560; line-height: 1.25; margin-bottom: 3px; }
+.card .body { padding: 7px 5px 4px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.card .name { color: var(--text); font-weight: 560; line-height: 1.25; margin-bottom: 2px; }
 .card .val { font-size: 12.5px; color: var(--text); opacity: .82; }
 .card .loc { font-size: 12.5px; color: var(--muted); }
 .card .loc::before { content: "⌗ "; opacity: .65; }
@@ -275,7 +336,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .drop-label strong { font-size: 14px; font-weight: 560; }
 .drop-label span { font-size: 13px; color: var(--muted); }
 
-.info h1 { margin: 0 0 12px; font-size: 25px; line-height: 1.2; letter-spacing: -.015em; }
+.info h1 { margin: 0 0 10px; font-size: 25px; line-height: 1.18; letter-spacing: 0; }
 .qtybox { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
 .qtybox form { margin: 0; }
 .big-qty { font-size: 30px; font-weight: 650; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: center; }
@@ -293,15 +354,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .actions form { margin: 0; }
 
 /* --- forms --- */
-.form { max-width: 760px; display: flex; flex-direction: column; gap: 14px; }
+.form { max-width: 760px; display: flex; flex-direction: column; gap: 11px; }
 .form.narrow { max-width: 360px; margin: 8vh auto 0; }
-.form h1 { margin: 0; font-size: 22px; letter-spacing: -.015em; }
-.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field > span { font-size: 13px; color: var(--muted); }
+.form h1 { margin: 0; font-size: 22px; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font-size: 12.5px; color: var(--muted); }
 .field > span em { font-style: normal; opacity: .7; }
 .field input, .field textarea {
-  padding: 10px 12px; font: inherit;
+  padding: 8px 11px; font: inherit;
   background: var(--panel); color: var(--text);
   border: 1px solid var(--line); border-radius: 9px; width: 100%;
 }
@@ -320,13 +381,14 @@ dialog.light img { max-width: 96vw; max-height: 96vh; border-radius: 8px; displa
 
 /* --- dashboard -------------------------------------------------------------- */
 
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 10px; margin-bottom: 22px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; margin-bottom: 18px; }
 .tile {
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; color: var(--text);
+  background: var(--panel); border: 1px solid transparent; border-radius: var(--radius);
+  box-shadow: var(--shadow); transition: box-shadow .12s;
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 1px; color: var(--text);
 }
-a.tile:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); text-decoration: none; }
-.tile b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
+a.tile:hover { box-shadow: var(--shadow-lift); text-decoration: none; }
+.tile b { font-family: var(--ui); font-size: 21px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .tile b.warn { color: var(--danger); }
 .tile span { font-size: 12.5px; color: var(--muted); }
 
@@ -358,8 +420,11 @@ a.tile:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 .folders { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 .folders.sub { margin-bottom: 18px; }
-.folder-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.folder-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.folder-card {
+  background: var(--panel); border: 1px solid transparent; border-radius: var(--radius);
+  overflow: hidden; box-shadow: var(--shadow); transition: box-shadow .12s;
+}
+.folder-card:hover { box-shadow: var(--shadow-lift); }
 .folder-card > a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; color: var(--text); }
 .folder-card > a:hover { text-decoration: none; }
 .folder-cover { width: 46px; height: 46px; border-radius: 8px; object-fit: cover; flex: none; }
@@ -377,7 +442,7 @@ a.tile:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 .folder-body .sub { font-size: 11.5px; opacity: .8; }
 
 .folder-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-.folder-head h1 { margin: 0; font-size: 24px; letter-spacing: -.015em; }
+.folder-head h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
 .folder-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
 .crumb .sep { color: var(--muted); margin: 0 5px; }
@@ -499,8 +564,8 @@ a.tile:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 .ti { font-size: 1.05em; line-height: 1; margin-right: 1px; }
 
 /* Tag admin page */
-.page-title { font-size: 23px; margin: 0 0 4px; letter-spacing: -.015em; }
-.page-sub { margin: 0 0 18px; font-size: 14px; }
+.page-title { font-family: var(--display); font-weight: 600; font-size: 23px; margin: 0 0 3px; }
+.page-sub { margin: 0 0 14px; font-size: 13.5px; }
 .tag-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
   grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
 .tag-admin form {
@@ -702,6 +767,13 @@ body.drag-target::after {
 
 /* Sections on the item page read as one column of equals. */
 .prices h2, .refs h2, .specs h2, .label-preview > summary { letter-spacing: .01em; }
+
+/* A heading that works as a label for the block under it, not as a title, stays
+   in the UI face: at 14px a serif reads as decoration rather than structure. */
+.section-head h2, .prices h2, .refs h2, .specs h2, .label-preview h2,
+.calc-stock h3, .measure h3, .note h3, .tool-head h2, .claims h2 {
+  font-family: var(--ui); font-weight: 600;
+}
 .detail .info > section { padding-bottom: 4px; }
 
 /* --- stock that is spoken for -------------------------------------------------- */
@@ -745,7 +817,8 @@ body.drag-target::after {
   padding: 8px 10px; color: var(--text); font: inherit; font-size: 14px; width: 100%;
 }
 .calc-result { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
-.calc-headline { display: block; font-size: 20px; font-weight: 660; letter-spacing: -.01em; margin-bottom: 10px; }
+.calc-headline { display: block; font-family: var(--ui); font-size: 20px; font-weight: 660;
+  letter-spacing: -.01em; font-variant-numeric: tabular-nums; margin-bottom: 10px; }
 .calc-result .facts { font-size: 13.5px; margin-bottom: 8px; }
 .calc-warn {
   font-size: 13px; margin: 6px 0 0;
@@ -784,7 +857,10 @@ body.drag-target::after {
 .restore { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
 .bom-form { display: flex; flex-direction: column; gap: 8px; min-width: 340px; }
 .rows.bom .chip.xs { flex: none; }
-.page-sub { margin-top: -8px; margin-bottom: 18px; }
+/* The pull-up is only right when the subtitle is tucked under a title. On the
+   model search it follows a row of chips, where it just looked crowded. */
+.page-title + .page-sub, h1 + .page-sub { margin-top: -6px; }
+.page-sub { margin-bottom: 16px; }
 
 /* A popover holding more than one form: stacking them keeps the second from
    landing on top of the first, which fixed offsets could not survive. */
@@ -929,10 +1005,11 @@ label.stack input { min-width: 150px; }
 .makers { list-style: none; margin: 0 0 26px; padding: 0; display: grid; gap: 10px;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .maker {
-  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  display: flex; align-items: center; gap: 11px; padding: 8px 11px;
+  background: var(--panel); border: 1px solid transparent; border-radius: var(--radius);
+  box-shadow: var(--shadow); transition: box-shadow .12s;
 }
-.maker:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.maker:hover { box-shadow: var(--shadow-lift); }
 .maker-face { flex: none; line-height: 0; }
 .maker-face img {
   width: 44px; height: 44px; object-fit: contain; border-radius: 8px;
@@ -985,10 +1062,16 @@ img.maker-chip { object-fit: contain; background: #fff; padding: 1px; }
 .toast.flash { margin: 12px auto -4px; }
 .toast:not(.flash) { margin: 0 auto 16px; }
 
+/* Eight controls do not fit on one 420px row, and the bar was pushing the page
+   sideways rather than wrapping: nav is the flex item, so nav is what has to
+   wrap. It takes its own full-width row under the wordmark. */
 @media (max-width: 640px) {
-  .topbar { flex-wrap: wrap; gap: 6px; }
-  .topbar nav { gap: 5px; flex: 1; justify-content: flex-end; }
+  .topbar { flex-wrap: wrap; gap: 6px 8px; }
+  .topbar nav { gap: 5px; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; }
   .topbar nav .btn { padding: 7px 9px; font-size: 13.5px; }
+  /* Anchored to the left edge of the bar instead of its trigger, which can sit
+     anywhere once the row wraps. */
+  .topbar nav .menu-panel { right: auto; left: 0; }
 }
 
 /* --- onboarding, workshop, ideas and wiring -------------------------------- */
@@ -1002,7 +1085,8 @@ img.maker-chip { object-fit: contain; background: #fff; padding: 1px; }
   flex-wrap: wrap; font-size: 12px; }
 .steps li { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
   color: var(--muted); }
-.steps li.on { border-color: var(--accent); color: var(--fg);
+.steps li.on { border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--text); font-weight: 600;
   background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 .stack { display: flex; flex-direction: column; gap: 12px; }
@@ -1019,7 +1103,7 @@ img.maker-chip { object-fit: contain; background: #fff; padding: 1px; }
 .field-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .field-row label { flex: 1 1 180px; }
 .panel { background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 16px; margin: 18px 0; }
+  border-radius: var(--radius); padding: 13px; margin: 14px 0; }
 
 .setup-banner { display: flex; gap: 16px; align-items: center; justify-content: space-between;
   flex-wrap: wrap; background: color-mix(in srgb, var(--accent) 10%, var(--panel));
@@ -1065,18 +1149,18 @@ img.maker-chip { object-fit: contain; background: #fff; padding: 1px; }
 .warn { color: #c0392b; }
 .note { border-left: 3px solid var(--line); padding-left: 14px; margin-top: 26px;
   color: var(--muted); font-size: 13px; max-width: 70ch; }
-.note h3 { margin-bottom: 4px; color: var(--fg); }
+.note h3 { margin-bottom: 4px; color: var(--text); }
 
 .brainstorm-box { max-width: 720px; }
 .hint { color: var(--muted); font-size: 13px; border-left: 3px solid var(--line);
   padding-left: 12px; }
 .ideas { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-.idea { padding: 14px 16px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); }
-.idea.dropped { opacity: .55; }
-.idea.built { border-color: color-mix(in srgb, #2f9e5a 40%, var(--line)); }
+.idea { padding: 12px 14px; background: var(--panel); border: 1px solid transparent;
+  border-radius: var(--radius); box-shadow: var(--shadow); }
+.idea.dropped { opacity: .55; box-shadow: none; }
+.idea.built { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .idea-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.idea-title { font-weight: 650; font-size: 15px; }
+.idea-title { font-family: var(--display); font-weight: 600; font-size: 17px; }
 .idea-summary { margin: 6px 0; max-width: 75ch; }
 .idea-parts { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
 .chip.have { border-color: color-mix(in srgb, #2f9e5a 40%, var(--line)); }
@@ -1115,6 +1199,10 @@ form.inline { display: inline; }
 }
 .avatar.big { width: 38px; height: 38px; font-size: 15px; }
 .avatar.tiny { width: 18px; height: 18px; font-size: 8.5px; }
+
+/* The account button draws its own caret next to the name, so it opts out of
+   the one every other menu summary gets — otherwise it reads "You ▾ ▾". */
+.menu.account > summary::after { content: none; }
 
 .avatar-btn { padding-left: 6px; padding-right: 9px; gap: 7px; }
 .avatar-name { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
