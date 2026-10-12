@@ -1,0 +1,418 @@
+{{define "item.html"}}
+{{template "top" .}}
+{{$it := .Data}}
+
+<p class="crumb"><a href="/items">← All items</a></p>
+
+<article class="detail">
+  <div class="gallery">
+    {{if $it.Photos}}
+      <div class="hero-wrap">
+        <img id="hero" src="/media/{{(index $it.Photos 0).Filename}}" alt="{{$it.Name}}">
+      </div>
+      <div class="strip">
+        {{range $i, $p := $it.Photos}}
+        <div class="shot-wrap">
+          <button type="button" class="shot" data-full="/media/{{$p.Filename}}">
+            <img src="/media/thumb/{{$p.Filename}}" alt="Photo {{add $i 1}} of {{$it.Name}}" loading="lazy">
+          </button>
+          <div class="shot-tools">
+            {{if gt $i 0}}
+            <form method="post" action="/photos/{{$p.ID}}/cover">
+              <button type="submit" title="Use as cover" aria-label="Use photo {{add $i 1}} as cover">★</button>
+            </form>
+            {{end}}
+            <form method="post" action="/photos/{{$p.ID}}/delete" data-confirm="Delete this photo?">
+              <button type="submit" class="x" title="Delete photo" aria-label="Delete photo {{add $i 1}}">×</button>
+            </form>
+          </div>
+        </div>
+        {{end}}
+      </div>
+    {{else}}
+      <div class="noimg big">{{initials $it.Name}}</div>
+    {{end}}
+
+    <form class="dropzone" method="post" action="/items/{{$it.ID}}/photos" enctype="multipart/form-data">
+      <label class="drop-label">
+        <input type="file" name="photos" accept="image/*" multiple capture="environment" hidden>
+        <strong>Add photos</strong>
+        <span>drop them here, or click to pick / take one</span>
+      </label>
+      <button class="btn" type="submit">Upload</button>
+    </form>
+
+    <details class="tuck">
+      <summary>Pull a photo from the web</summary>
+      <form method="post" action="/items/{{$it.ID}}/photos/url">
+        <div class="import-row">
+          <input type="url" name="image_url" placeholder="Image or product page URL" required>
+          <button class="btn" type="submit">Fetch</button>
+        </div>
+      </form>
+    </details>
+  </div>
+
+  <div class="info">
+    <h1>{{$it.Name}}</h1>
+
+    <div class="qtybox">
+      <form method="post" action="/items/{{$it.ID}}/quantity" class="step">
+        <input type="hidden" name="delta" value="-1">
+        <button class="btn" type="submit" aria-label="Remove one">−</button>
+      </form>
+      <span class="big-qty{{if eq $it.Quantity 0}} zero{{end}}">{{$it.Quantity}}</span>
+      <form method="post" action="/items/{{$it.ID}}/quantity" class="step">
+        <input type="hidden" name="delta" value="1">
+        <button class="btn" type="submit" aria-label="Add one">+</button>
+      </form>
+      <span class="muted">in stock{{if $it.Committed}} · {{$it.Available}} free{{end}}</span>
+      {{if $it.Incoming}}<span class="chip xs"><a href="/orders">{{$it.Incoming}} on order</a></span>{{end}}
+    </div>
+
+    {{if $it.Claims}}
+    <div class="toast{{if $it.Oversubscribed}} bad{{end}} inline claims">
+      <b>{{$it.ClaimNote}}.</b>
+      <ul class="claim-list">
+        {{range $it.Claims}}<li><a href="/projects/{{.ProjectID}}">{{.Project}}</a> — {{.Quantity}}</li>{{end}}
+      </ul>
+      {{if $it.Oversubscribed}}More is promised than you have. Something has to give.{{end}}
+    </div>
+    {{end}}
+    {{if and $it.Low (not $it.Claims)}}
+    <div class="toast inline">Running low — the reorder line for this part is {{$it.Threshold}}.</div>
+    {{end}}
+
+    <dl class="facts">
+      {{if $it.FolderName}}<dt>Folder</dt><dd><a href="/folders/{{$it.FolderRef}}">{{$it.FolderName}}</a></dd>{{end}}
+      {{if $it.Location}}<dt>Location</dt><dd><a href="/items?location={{$it.Location}}">{{$it.Location}}</a></dd>{{end}}
+      {{if $it.Category}}<dt>Type</dt><dd><a href="/items?category={{$it.Category}}">{{$it.Category}}</a></dd>{{end}}
+      {{if $it.Value}}<dt>Value / rating</dt><dd>{{$it.Value}}</dd>{{end}}
+      <dt>Reorder at</dt><dd>{{$it.Threshold}}{{if $it.Low}} <span class="warn">— you are there</span>{{end}}</dd>
+      {{if $it.PartNumber}}<dt>Part number</dt><dd><code>{{$it.PartNumber}}</code></dd>{{end}}
+      {{if $it.Manufacturer}}
+      <dt>Made by</dt>
+      <dd class="maker-line">
+        {{if $it.Maker.Logo}}
+          <img class="maker-chip" src="/media/thumb/{{$it.Maker.Logo}}" alt="" loading="lazy">
+        {{else}}
+          <span class="maker-chip maker-mark" style="--hue: {{hue $it.Manufacturer}}">{{monogram $it.Manufacturer}}</span>
+        {{end}}
+        <a href="/items?manufacturer={{$it.Manufacturer}}">{{$it.Manufacturer}}</a>
+        {{with $it.Maker.Site}}<a class="muted" href="{{.}}" target="_blank" rel="noreferrer noopener">↗</a>{{end}}
+      </dd>
+      {{end}}
+      {{if $it.Link}}<dt>Link</dt><dd><a href="{{$it.Link}}" rel="noreferrer noopener" target="_blank">{{$it.Link}}</a></dd>{{end}}
+      <dt>Updated</dt><dd>{{since $it.UpdatedAt}}</dd>
+    </dl>
+
+    {{if $it.Interfaces}}
+    <div class="tags io-row">
+      {{range $it.Interfaces}}<a class="chip sm io" href="/items?io={{.}}"><span class="ti">{{ioIcon .}}</span>{{.}}</a>{{end}}
+    </div>
+    {{end}}
+
+    {{if $it.Tags}}
+    <div class="tags">
+      {{range $it.Tags}}<a class="chip sm" href="/items?tag={{.Name}}">{{if .Icon}}<span class="ti">{{.Icon}}</span>{{end}}{{.Name}}</a>{{end}}
+    </div>
+    {{end}}
+
+    <section class="prices">
+      <h2>Prices</h2>
+      {{if $it.Prices}}
+      <ul>
+        {{range $it.Prices}}
+        <li>
+          <span class="src">{{.Source}}</span>
+          <span class="amt">{{.Display}}</span>
+          {{with .Lead}}<span class="lead">{{.}}</span>{{end}}
+          {{if .URL}}<a class="muted" href="{{.URL}}" target="_blank" rel="noreferrer noopener">link</a>{{end}}
+          <span class="muted when">{{since .UpdatedAt}}</span>
+          <form method="post" action="/items/{{$it.ID}}/price/delete">
+            <input type="hidden" name="source" value="{{.Source}}">
+            <button class="btn tiny danger" type="submit" aria-label="Remove {{.Source}} price">×</button>
+          </form>
+        </li>
+        {{end}}
+      </ul>
+      {{if gt $it.Quantity 0}}
+      <p class="muted line-value">{{$it.Quantity}} in stock · {{money $it.LineValue}} at the cheapest price</p>
+      {{end}}
+      {{with $it.Fastest}}
+        {{if ne .Source $it.Best.Source}}
+        <p class="muted line-value">Cheapest is {{$it.Best.Source}}; {{.Source}} arrives soonest ({{.Lead}}).</p>
+        {{end}}
+      {{end}}
+      {{else}}
+      <p class="muted">No prices recorded yet.</p>
+      {{end}}
+
+      {{if $it.Changes}}
+      <ul class="changes">
+        {{range $it.Changes}}
+        <li class="dir-{{.Direction}}">
+          {{.Source}}: {{money .First}} → {{money .Latest}}
+          <span class="muted">over {{.Points}} checks</span>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+
+      <details class="tuck">
+      <summary>Add or update a price</summary>
+      <form class="price-add" method="post" action="/items/{{$it.ID}}/price">
+        <input name="source" list="price-sources" placeholder="Shop" required>
+        <datalist id="price-sources">
+          <option value="Adafruit"><option value="Amazon"><option value="AliExpress">
+          <option value="Mouser"><option value="Digi-Key"><option value="LCSC"><option value="eBay">
+        </datalist>
+        <input name="amount" inputmode="decimal" placeholder="19.95" required>
+        <input name="lead_days" inputmode="numeric" placeholder="ship days" aria-label="Shipping days">
+        <input name="url" type="url" placeholder="link (optional)">
+        <button class="btn" type="submit">Save price</button>
+      </form>
+      <form method="post" action="/items/{{$it.ID}}/price/refresh" class="refresh">
+        <button class="btn tiny ghost" type="submit">Check price now</button>
+        <span class="muted">searchable sources only</span>
+      </form>
+      {{if $it.Octopart}}
+      <form method="post" action="/items/{{$it.ID}}/octopart" class="refresh">
+        <button class="btn tiny ghost" type="submit">Fill in from Octopart</button>
+        <span class="muted">specs, datasheet and distributor prices, by part number</span>
+      </form>
+      {{end}}
+      </details>
+    </section>
+
+    <section class="refs">
+      <div class="section-head"><h2>Datasheets &amp; pinouts</h2>
+        <form method="post" action="/items/{{$it.ID}}/docs">
+          <button class="btn tiny" type="submit">Find documentation</button>
+        </form>
+      </div>
+      <p class="muted small">Follows the product link and searches the shops it can reach for
+        datasheets, pinouts and manuals. Pinout images are downloaded so they show up here.</p>
+      {{if $it.Pinouts}}
+      <div class="pinouts">
+        {{range $it.Pinouts}}
+        <figure>
+          <a href="/media/{{.Filename}}" target="_blank" rel="noreferrer noopener">
+            <img src="/media/thumb/{{.Filename}}" alt="{{.Title}}" loading="lazy">
+          </a>
+          <figcaption>
+            <span>{{.Title}}</span>
+            <form method="post" action="/refs/{{.ID}}/delete">
+              <button class="btn tiny danger" type="submit" aria-label="Remove {{.Title}}">×</button>
+            </form>
+          </figcaption>
+        </figure>
+        {{end}}
+      </div>
+      {{end}}
+
+      {{if $it.Docs}}
+      <ul class="doclist">
+        {{range $it.Docs}}
+        <li>
+          <span class="kind">{{.Kind}}</span>
+          {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noreferrer noopener">{{.Title}}</a>
+          {{else}}<span>{{.Title}}</span>{{end}}
+          <form method="post" action="/refs/{{.ID}}/delete">
+            <button class="btn tiny danger" type="submit" aria-label="Remove {{.Title}}">×</button>
+          </form>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+
+      {{if not $it.Refs}}<p class="muted">No datasheets or pinouts yet.</p>{{end}}
+
+      <details class="tuck">
+      <summary>Add a datasheet, pinout or manual</summary>
+      <form class="price-add" method="post" action="/items/{{$it.ID}}/refs" enctype="multipart/form-data">
+        <select name="kind" aria-label="Reference type">
+          {{range $it.RefKinds}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+        <input name="title" placeholder="Title">
+        <input name="url" type="url" placeholder="Link (a pinout image is downloaded)">
+        <input type="file" name="file" accept="image/*" aria-label="Upload a pinout image">
+        <button class="btn" type="submit">Add reference</button>
+      </form>
+      </details>
+    </section>
+
+    {{if $it.Specs}}
+    <section class="specs">
+      <h2>Specifications</h2>
+      <dl class="facts">
+        {{range $it.Specs}}<dt>{{.Name}}</dt><dd>{{.Value}}</dd>{{end}}
+      </dl>
+    </section>
+    {{end}}
+
+    <section class="land">
+      <div class="section-head"><h2>Footprint</h2></div>
+      {{with $it.Land}}
+      <div class="land-drawing">{{.SVG}}</div>
+      <dl class="facts">
+        <dt>Name</dt><dd><code>{{$it.Footprint}}</code></dd>
+        <dt>Size</dt><dd>{{.Size}}{{with .Pitch}} · {{.}} pitch{{end}}</dd>
+        <dt>Pads</dt><dd>{{.PadCount}}, {{.Mounting}}</dd>
+        {{if .Description}}<dt>From the library</dt><dd>{{.Description}}</dd>{{end}}
+        <dt>Source</dt><dd>{{.Source}}</dd>
+      </dl>
+      {{else}}
+        {{if $it.Footprint}}
+          <p class="muted"><code>{{$it.Footprint}}</code> — {{$it.LandErr}}</p>
+        {{else}}
+          <p class="muted">No land pattern recorded. Give it a KiCad footprint name and the pads
+            are drawn to scale, so you can see how big the part actually is and which way round
+            pin 1 goes. A BOM import fills this in on its own.</p>
+        {{end}}
+      {{end}}
+
+    <section class="models">
+      <div class="section-head"><h2>Cases &amp; 3D models</h2>
+        <a class="btn tiny" href="/items/{{$it.ID}}/models">Find a case</a>
+      </div>
+
+      {{if $it.Models}}
+      <ul class="model-list">
+        {{range $it.Models}}
+        <li>
+          <div class="model-shot">
+            {{if .Image}}
+              <a href="/media/{{.Image}}" target="_blank" rel="noopener">
+                <img src="/media/thumb/{{.Image}}" alt="{{.Title}}" loading="lazy">
+              </a>
+            {{else}}<span class="noimg">◍</span>{{end}}
+            {{if .Preview}}<span class="model-badge" title="Drawn from the model's own geometry">measured</span>{{end}}
+          </div>
+          <div class="model-body">
+            <a class="row-name" href="{{.URL}}" target="_blank" rel="noreferrer noopener">{{.Title}}</a>
+            <span class="muted">
+              {{.Source}}{{if .Author}} · by {{.Author}}{{end}}{{if .Stats}} · {{.Stats}}{{end}}
+            </span>
+            {{if .Measured}}
+              <span class="model-size">{{.Dimensions}} <span class="muted">· {{.TriangleText}} triangles</span></span>
+            {{else}}
+              <form class="model-mesh" method="post" action="/models/{{.ID}}/mesh" enctype="multipart/form-data">
+                <input type="file" name="stl" accept=".stl,model/stl" aria-label="STL file">
+                <input type="url" name="stl_url" placeholder="…or a direct .stl link" aria-label="STL link">
+                <button class="btn tiny" type="submit">Measure &amp; draw it</button>
+              </form>
+            {{end}}
+            {{if .Licence}}<span class="muted">{{.Licence}}</span>{{end}}
+          </div>
+          <form method="post" action="/models/{{.ID}}/delete" data-confirm="Remove “{{.Title}}”?">
+            <button class="btn tiny danger" type="submit" aria-label="Remove {{.Title}}">×</button>
+          </form>
+        </li>
+        {{end}}
+      </ul>
+      <p class="muted small">The STL is not kept — only its measurements and the drawing. The file
+        stays on the model site, which is where the link goes.</p>
+      {{else}}
+      <p class="muted">No cases kept yet. <a href="/items/{{$it.ID}}/models">Look for one</a> —
+        give it the STL afterwards and the real geometry is measured and drawn, so you know
+        whether it fits before you print it.</p>
+      {{end}}
+    </section>
+
+    {{with .Data.Machines}}
+    <section class="in-service">
+      <div class="section-head"><h2>In service</h2></div>
+      <ul class="rows plain">
+        {{range .}}<li><a href="/machines?edit={{.ID}}#edit"><b>{{.Name}}</b></a>
+          {{if .Role}}<span class="muted">— {{.Role}}</span>{{end}}
+          {{if .Address}}<code class="small">{{.Address}}</code>{{end}}</li>{{end}}
+      </ul>
+    </section>
+    {{end}}
+
+    {{if or .Data.Flashes .Data.AllItems}}
+    <section class="firmware">
+      <div class="section-head"><h2>Firmware on these</h2>
+        <a class="chip sm" href="/firmware">All boards</a></div>
+      {{with .Data.Flashes}}
+      <ul class="rows plain">
+        {{range .}}
+        <li class="{{if not .Current}}replaced{{end}}">
+          <a href="/firmware/{{.ID}}"><b>{{.Firmware}}</b></a>{{if .Version}} <span class="muted">{{.Version}}</span>{{end}}
+          <span class="muted small">{{if .Unit}}on {{.Unit}} · {{end}}{{.FlashedDate}}{{if not .Current}} · replaced{{end}}</span>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="muted small">Nothing recorded. Once one of these is running something, say what,
+      and keep the image so it can go back on.</p>
+      {{end}}
+      {{if .Data.AllItems}}
+      <details class="tuck">
+        <summary>Record what is on one</summary>
+        {{template "flash-form" dict "Items" .Data.AllItems "Projects" .Data.Projects "Limit" .Data.FwLimit "Return" (printf "/items/%d" .Data.ID) "Item" .Data.ID}}
+      </details>
+      {{end}}
+    </section>
+    {{end}}
+
+    {{with .Data.Prints}}
+    <section class="printed">
+      <div class="section-head"><h2>Printed for this</h2></div>
+      <ul class="rows plain">
+        {{range .}}<li>{{.Name}} <span class="muted small">on {{.Printer}} · {{since .SentAt}}</span>
+          <form method="post" action="/printing/jobs/{{.ID}}/resend" class="inline">
+            <button class="btn tiny" type="submit">Send again</button></form></li>{{end}}
+      </ul>
+    </section>
+    {{end}}
+
+      <details class="tuck">
+      <summary>{{if $it.Footprint}}Change{{else}}Set{{end}} the footprint</summary>
+      <form class="price-add" method="post" action="/items/{{$it.ID}}/footprint" enctype="multipart/form-data">
+        <input name="footprint" value="{{$it.Footprint}}" placeholder="Resistor_SMD:R_0805_2012Metric"
+               spellcheck="false" autocomplete="off">
+        <input type="file" name="file" accept=".kicad_mod" aria-label="Upload a .kicad_mod file">
+        <button class="btn" type="submit">Save</button>
+      </form>
+      <p class="muted small">Fetched once from KiCad's own library and then kept, so the drawing
+        works offline. Upload a <code>.kicad_mod</code> for anything not in that library.</p>
+      </details>
+    </section>
+
+    {{if $it.Notes}}<div class="notes">{{$it.Notes}}</div>{{end}}
+
+    <details class="tuck label-preview">
+      <summary>Label codes</summary>
+      <div class="label-pair">
+        <img src="/items/{{$it.ID}}/qr.png" alt="QR code for {{$it.Name}}" width="110" height="110">
+        <img class="bc" src="/items/{{$it.ID}}/barcode.png" alt="Barcode for {{$it.Name}}" width="180" height="52">
+      </div>
+      <p class="muted">Scan the QR with a phone to open this page. <a href="/labels?q={{$it.Name}}">Print a sheet</a></p>
+    </details>
+
+    <div class="actions">
+      <a class="btn primary" href="/items/{{$it.ID}}/edit">Edit</a>
+      <details class="inline-form">
+        <summary class="btn">Move</summary>
+        <form method="post" action="/items/{{$it.ID}}/move">
+          <select name="folder_id">
+            <option value="">— no folder —</option>
+            {{range $it.Folders}}
+              <option value="{{.ID}}"{{if $it.InFolder .ID}} selected{{end}}>{{.Indent}}{{.Name}}</option>
+            {{end}}
+          </select>
+          <button class="btn" type="submit">Move</button>
+        </form>
+      </details>
+      <a class="btn ghost" href="/labels?q={{$it.Name}}">Print label</a>
+      <form method="post" action="/items/{{$it.ID}}/delete" data-confirm="Delete “{{$it.Name}}” and its photos?">
+        <button class="btn danger" type="submit">Delete</button>
+      </form>
+    </div>
+  </div>
+</article>
+
+{{template "bottom" .}}
+{{end}}

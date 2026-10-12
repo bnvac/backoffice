@@ -1,0 +1,49 @@
+{{define "flash.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+{{$f := $d.Flash}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/firmware">Firmware</a><span class="sep">/</span><span class="here">{{$f.Firmware}}</span></nav>
+
+<div class="folder-head">
+  <h1>{{$f.Firmware}}{{if $f.Version}} <span class="muted">{{$f.Version}}</span>{{end}}</h1>
+  <div class="folder-actions">
+    <form method="post" action="/firmware/{{$f.ID}}/delete" data-confirm="Forget this record?{{if $f.HasFile}} The image stays, since other records may share it.{{end}}">
+      <button class="btn tiny danger" type="submit">Remove</button>
+    </form>
+  </div>
+</div>
+
+{{if not $f.Current}}
+<div class="toast inline">A newer record exists for this board, so this one is history.</div>
+{{end}}
+
+<dl class="facts wide">
+  <dt>Board</dt><dd>{{if $f.ItemRef}}<a href="/items/{{$f.ItemRef}}">{{$f.ItemName}}</a>{{else}}{{$f.Board}}{{end}}{{if $f.Unit}} — {{$f.Unit}}{{end}}</dd>
+  <dt>Flashed</dt><dd>{{$f.FlashedDate}}</dd>
+  {{if $f.ProjectRef}}<dt>For</dt><dd><a href="/projects/{{$f.ProjectRef}}">{{$f.ProjectName}}</a></dd>{{end}}
+  {{if $f.HasFile}}
+  <dt>Image</dt><dd>{{$f.File}} <span class="muted">· {{$f.SizeLabel}}</span>
+    <a class="btn tiny" href="/firmware/{{$f.ID}}/file">Download</a></dd>
+  <dt>SHA-256</dt><dd><code class="sum">{{$f.SHA256}}</code></dd>
+  {{end}}
+  {{if $f.Notes}}<dt>Notes</dt><dd>{{$f.Notes}}</dd>{{end}}
+</dl>
+
+{{if $d.HasHint}}
+<section class="panel">
+  <h2>Putting it back on</h2>
+  <p class="muted small">From the machine the board is plugged into, with the file downloaded
+  next to you. This app does not flash anything itself — the board is on your desk, not on the
+  server.</p>
+  {{if $d.Hint.Command}}
+  <pre class="cmd"><code>{{$d.Hint.Command}}</code></pre>
+  {{end}}
+  <p>{{$d.Hint.Note}}</p>
+  {{if $f.HasFile}}<p class="muted small">Before flashing, <code>sha256sum {{$f.File}}</code> should print the
+  checksum above. If it does not, the download is not the file that was kept.</p>{{end}}
+</section>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

@@ -1,0 +1,434 @@
+{{define "project.html"}}
+{{template "top" .}}
+{{$d := .Data}}{{$p := $d.Project}}{{$pins := $d.Pins}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/projects">Projects</a>
+  <span class="sep">/</span><span class="here">{{$p.Name}}</span></nav>
+
+<div class="folder-head">
+  <h1>{{$p.Name}}</h1>
+  <div class="folder-actions">
+    <a class="btn ghost" href="/projects/{{$p.ID}}/bom.csv">Export BOM</a>
+    {{if $p.Shortfall}}<a class="btn ghost" href="/projects/{{$p.ID}}/shopping-list.csv">Shopping list</a>{{end}}
+    <details class="inline-form">
+      <summary class="btn">Settings</summary>
+      <div class="pop">
+      <form method="post" action="/projects/{{$p.ID}}">
+        <input name="name" value="{{$p.Name}}" required>
+        <input name="notes" value="{{$p.Notes}}" placeholder="Notes">
+        <select name="status"{{if $p.Consumed}} disabled{{end}}>
+          {{range $s := $d.Statuses}}
+          <option value="{{$s}}"{{if eq $p.Status $s}} selected{{end}}>{{$s}}</option>
+          {{end}}
+        </select>
+        <select name="controller_id">
+          <option value="">— no controller board —</option>
+          {{range $d.AllItems}}<option value="{{.ID}}"{{if eq $p.ControllerRef .ID}} selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+        <button class="btn" type="submit">Save</button>
+      </form>
+      <form method="post" action="/projects/{{$p.ID}}/delete" data-confirm="Delete the project “{{$p.Name}}”? Your parts are not touched.">
+        <button class="btn danger" type="submit">Delete project</button>
+      </form>
+      </div>
+    </details>
+  </div>
+</div>
+
+{{if $p.Notes}}<p class="muted page-sub">{{$p.Notes}}</p>{{end}}
+
+<div class="tiles">
+  <div class="tile"><b>{{len $p.Parts}}</b><span>parts listed</span></div>
+  <div class="tile"><b{{if $p.Shortfall}} class="warn"{{end}}>{{len $p.Shortfall}}</b><span>still needed</span></div>
+  {{if $p.EstimatedCost}}<div class="tile"><b>{{money $p.EstimatedCost}}</b><span>to buy (est.)</span></div>{{end}}
+  <div class="tile"><b>{{$p.Status}}</b><span>status</span></div>
+  {{if and $pins.Controller $pins.Capacity}}
+  <div class="tile"><b{{if $pins.Over}} class="warn"{{end}}>{{$pins.Total}} / {{$pins.Capacity}}</b><span>pins used</span></div>
+  {{end}}
+  {{if $d.Progress.Any}}
+  <a class="tile" href="#steps"><b{{if $d.Progress.Complete}} class="ok"{{end}}>{{$d.Progress.Percent}}%</b><span>done</span></a>
+  {{end}}
+</div>
+
+{{/* Reserving, and then actually taking, the parts. */}}
+<section class="panel-block stock-state">
+  {{if $p.Consumed}}
+    <div class="toast ok inline">
+      <b>Built.</b> These parts came off the shelf {{since $p.ConsumedAt}}.
+      <form method="post" action="/projects/{{$p.ID}}/return" data-confirm="Put this project's parts back on the shelf?">
+        <button class="btn tiny" type="submit">Put the parts back</button>
+      </form>
+    </div>
+  {{else if $p.Building}}
+    <div class="toast inline">
+      <b>Building.</b> Every part on this list is reserved — your other projects can see what is left, not what is on the shelf.
+      <form method="post" action="/projects/{{$p.ID}}/consume"
+            data-confirm="Take {{len $p.Parts}} lines' worth of parts off the shelf and mark this built?">
+        <button class="btn tiny primary" type="submit">Mark built &amp; take the parts</button>
+      </form>
+    </div>
+  {{else}}
+    <p class="muted">Status is <b>{{$p.Status}}</b>, so nothing here is reserved.
+      Set it to <b>building</b> in Settings and these parts stop counting as available elsewhere.</p>
+  {{end}}
+</section>
+
+{{/* The plan. The build log below records what actually happened; this is the
+     list you tick at eleven at night when you cannot remember whether you
+     already flashed the board. */}}
+<section class="panel-block steps-block" id="steps">
+  <div class="section-head">
+    <h2>Steps</h2>
+    {{if $d.Progress.Any}}<span class="muted small">{{$d.Progress.Left}}</span>{{end}}
+    {{if $d.Progress.Done}}
+    <form method="post" action="/projects/{{$p.ID}}/steps/reset"
+          data-confirm="Untick every step on this project?">
+      <button class="btn tiny ghost" type="submit">Untick all</button>
+    </form>
+    {{end}}
+  </div>
+
+  {{if $d.Progress.Any}}
+  <div class="budget-bar steps-bar{{if $d.Progress.Complete}} done{{end}}">
+    <span style="width: {{$d.Progress.Percent}}%"></span>
+  </div>
+  {{end}}
+
+  {{if $d.Steps}}
+  <ol class="steps-list">
+    {{range $i, $s := $d.Steps}}
+    <li class="step{{if $s.Done}} done{{end}}">
+      <form method="post" action="/steps/{{$s.ID}}/toggle" class="step-tick">
+        <button type="submit" class="tickbox" aria-pressed="{{if $s.Done}}true{{else}}false{{end}}">
+          <span aria-hidden="true">{{if $s.Done}}✓{{else}}&nbsp;{{end}}</span>
+          <span class="sr-only">{{if $s.Done}}Untick{{else}}Tick{{end}}: {{$s.Body}}</span>
+        </button>
+      </form>
+
+      <span class="step-body">{{$s.Body}}</span>
+      {{if $s.Done}}<span class="step-when muted">{{since $s.DoneAt}}</span>{{end}}
+
+      <div class="step-tools">
+        <form method="post" action="/steps/{{$s.ID}}/move/up">
+          <button class="btn tiny ghost" type="submit" {{if eq $i 0}}disabled{{end}}
+                  aria-label="Move up">↑</button>
+        </form>
+        <form method="post" action="/steps/{{$s.ID}}/move/down">
+          <button class="btn tiny ghost" type="submit"
+                  {{if eq $i (add (len $d.Steps) -1)}}disabled{{end}} aria-label="Move down">↓</button>
+        </form>
+        <details class="inline-form">
+          <summary class="btn tiny ghost" aria-label="Edit this step">✎</summary>
+          <form method="post" action="/steps/{{$s.ID}}/edit">
+            <input name="body" value="{{$s.Body}}" aria-label="Step text">
+            <button class="btn tiny primary" type="submit">Save</button>
+          </form>
+        </details>
+        <form method="post" action="/steps/{{$s.ID}}/delete">
+          <button class="btn tiny danger" type="submit" aria-label="Delete this step">×</button>
+        </form>
+      </div>
+    </li>
+    {{end}}
+  </ol>
+  {{else}}
+  <p class="muted">No steps yet. Paste a plan below — one per line, bullets and numbering
+  come off — or add them one at a time.</p>
+  {{end}}
+
+  <form method="post" action="/projects/{{$p.ID}}/steps" class="step-add">
+    <textarea name="body" rows="2" aria-label="New step, or a whole plan one per line"
+      placeholder="solder the headers
+flash MicroPython — or paste a whole plan, one per line"></textarea>
+    <button class="btn primary" type="submit">Add</button>
+  </form>
+</section>
+
+{{if $p.Shortfall}}
+<section class="panel-block">
+  <div class="section-head"><h2>What you still need</h2>
+    <form method="post" action="/projects/{{$p.ID}}/order">
+      <button class="btn tiny primary" type="submit">Draft an order for it</button>
+    </form>
+    <a class="chip sm" href="/projects/{{$p.ID}}/shopping-list.csv">Download list</a></div>
+  <ul class="rows">
+    {{range $p.Shortfall}}
+    <li>
+      <span class="row-item">
+        <span class="short-badge">{{.Short}}</span>
+        <span class="row-name">{{.Label}}</span>
+        <span class="muted">
+          {{if .Contested}}{{.Free}} free of {{.Have}} on the shelf — {{.RivalNote}}
+          {{else}}have {{.Have}} of {{.Quantity}}{{end}}
+        </span>
+      </span>
+      {{if .Item}}
+        <a class="chip sm" href="/items/{{.Item.ID}}">Open</a>
+      {{else}}
+        <a class="chip sm" href="/items/new?name={{.Label}}">Add to inventory</a>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{else if $p.Parts}}
+<div class="toast ok">Everything on this list is on the shelf.</div>
+{{end}}
+
+{{if $pins.Controller}}
+<section class="panel-block">
+  <div class="section-head">
+    <h2>Pin budget</h2>
+    <span class="muted">against <a href="/items/{{$pins.Controller.ID}}">{{$pins.Controller.Name}}</a></span>
+  </div>
+
+  {{if $pins.Capacity}}
+  <div class="budget-bar{{if $pins.Over}} over{{end}}">
+    <span style="width: {{$pins.Percent}}%"></span>
+  </div>
+  <p class="muted">{{$pins.Total}} of {{$pins.Capacity}} pins spoken for
+    ({{$pins.CapacityFrom}}){{if not $pins.Over}} — {{$pins.Spare}} spare{{end}}.</p>
+  {{end}}
+
+  {{if $pins.Buses}}
+  <ul class="rows">
+    {{range $pins.Buses}}
+    <li>
+      <span class="row-item">
+        <span class="chip xs">{{ioIcon .Name}} {{.Name}}</span>
+        <span class="row-name">{{len .Devices}} device{{if ne (len .Devices) 1}}s{{end}}</span>
+        <span class="muted">{{.Note}} — {{range $i, $dev := .Devices}}{{if $i}}, {{end}}{{$dev}}{{end}}</span>
+      </span>
+      <span class="row-qty">{{.Pins}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+
+  {{if $pins.Demands}}
+  <ul class="rows">
+    {{range $pins.Demands}}
+    <li>
+      <span class="row-item">
+        <a class="row-name" href="/items/{{.ItemID}}">{{.Part}}</a>
+        <span class="muted">{{.Detail}}</span>
+      </span>
+      <span class="row-qty">{{.Pins}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+
+  {{range $pins.Conflicts}}<div class="toast bad inline">⚠ {{.}}</div>{{end}}
+  {{range $pins.Notes}}<p class="muted">{{.}}</p>{{end}}
+  {{if and (not $pins.Buses) (not $pins.Demands)}}
+  <p class="muted">Nothing on this list records what it speaks yet. Tick the interfaces on each
+    part's edit page — I2C, SPI, PWM and so on — and the budget fills itself in.</p>
+  {{end}}
+</section>
+{{end}}
+
+<section class="panel-block" id="pins">
+  <div class="section-head">
+    <h2>Pin map</h2>
+    {{if $d.Wiring}}<a class="chip sm" href="/projects/{{$p.ID}}/wiring.csv">Wiring card</a>{{end}}
+  </div>
+
+  {{range $d.PinClashes}}<div class="toast bad inline">⚠ {{.}}</div>{{end}}
+
+  {{if $d.Diagram}}
+  <figure class="wiring-figure">
+    {{$d.Diagram}}
+    <figcaption>
+      {{range $d.Legend}}<span class="wire-key"><i style="background: {{.Colour}}"></i>{{.Signal}}</span>{{end}}
+      <span class="muted small">Colours follow bench convention — red is power, black is
+        ground — so the drawing and the wire in your hand agree.</span>
+    </figcaption>
+  </figure>
+  {{end}}
+
+  {{if $d.Wiring}}
+  <table class="wiring">
+    <thead><tr><th>Pin</th><th>Goes to</th><th>Signal</th><th>Note</th><th></th></tr></thead>
+    <tbody>
+      {{range $d.Wiring}}
+      <tr{{if .Clashes}} class="clash"{{end}}>
+        <td><code>{{.Pin}}</code></td>
+        <td>{{if .Item}}<a href="/items/{{.ItemRef}}">{{.Where}}</a>{{else}}{{.Where}}{{end}}</td>
+        <td>{{.Signal}}</td>
+        <td class="muted">{{.Note}}{{if .Clashes}} <span class="warn">clashes with {{range $i, $c := .Clashes}}{{if $i}}, {{end}}{{$c}}{{end}}</span>{{end}}</td>
+        <td>
+          <form method="post" action="/pins/{{.ID}}/delete">
+            <button class="btn tiny danger" type="submit" aria-label="Remove {{.Pin}}">×</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">Nothing wired up yet. The budget above counts how many pins this needs;
+    the map records which pin went where, which is the only way to catch the same one used twice.</p>
+  {{end}}
+
+  <form class="price-add" method="post" action="/projects/{{$p.ID}}/pins">
+    <input name="pin" placeholder="GPIO21" aria-label="Pin" required spellcheck="false">
+    <select name="item_id">
+      <option value="">— what it goes to —</option>
+      {{range $d.AllItems}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+    <input name="signal" placeholder="SDA" aria-label="Signal" spellcheck="false">
+    <input name="note" placeholder="Note" aria-label="Note">
+    <button class="btn" type="submit">Wire it</button>
+  </form>
+
+  {{if $d.PinIdeas}}
+  <details class="tuck">
+    <summary>Start from what the parts need ({{len $d.PinIdeas}} connections)</summary>
+    <form method="post" action="/projects/{{$p.ID}}/pins" class="pin-ideas">
+      <p class="muted small">Every part on the list that speaks a bus needs these lines. Fill in
+        the pin numbers you actually used and they all go in at once; leave one blank to skip it.</p>
+      <table class="wiring">
+        <thead><tr><th>Pin</th><th>Goes to</th><th>Signal</th></tr></thead>
+        <tbody>
+          {{range $d.PinIdeas}}
+          <tr>
+            <td><input name="pin" placeholder="GPIO…" size="8" spellcheck="false"
+                       aria-label="Pin for {{.Part}} {{.Signal}}"></td>
+            <td>{{.Part}}<input type="hidden" name="item_id" value="{{.ItemRef}}"><input type="hidden" name="part" value="{{.Part}}"></td>
+            <td><code>{{.Signal}}</code><input type="hidden" name="signal" value="{{.Signal}}"></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      <button class="btn" type="submit">Add the ones I filled in</button>
+    </form>
+  </details>
+  {{end}}
+</section>
+
+<section class="panel-block">
+  <div class="section-head">
+    <h2>Parts list</h2>
+    <details class="inline-form">
+      <summary class="btn">Import a BOM</summary>
+      <form method="post" action="/projects/{{$p.ID}}/bom" enctype="multipart/form-data" class="bom-form">
+        <textarea name="bom" rows="6" placeholder="Paste a KiCad, EasyEDA or spreadsheet BOM as CSV…"></textarea>
+        <input type="file" name="file" accept=".csv,.txt,text/csv,text/plain">
+        <label class="inline-check"><input type="checkbox" name="replace" value="1"> Replace the current list</label>
+        <button class="btn primary" type="submit">Read it</button>
+      </form>
+    </details>
+  </div>
+  {{if $p.Parts}}
+  <ul class="rows">
+    {{range $p.Parts}}
+    <li{{if .Contested}} class="contested"{{end}}>
+      <span class="row-item">
+        {{if .Item}}
+          {{if .Item.Thumb}}<img src="/media/thumb/{{.Item.Thumb}}" alt="" loading="lazy">
+          {{else}}<span class="noimg tiny">{{initials .Label}}</span>{{end}}
+          <a class="row-name" href="/items/{{.Item.ID}}">{{.Label}}</a>
+        {{else if .IsAssembly}}
+          <span class="noimg tiny">🧩</span>
+          <a class="row-name" href="/projects/{{.SubRef}}">{{.Label}}</a>
+          <span class="muted">sub-assembly — {{.Buildable}} buildable from stock</span>
+        {{else}}
+          <span class="noimg tiny">?</span>
+          <span class="row-name">{{.Label}} <span class="muted">(not in inventory)</span></span>
+        {{end}}
+        {{if .Note}}<span class="muted">{{.Note}}</span>{{end}}
+        {{if .Claimed}}<span class="muted claim">{{.RivalNote}}</span>{{end}}
+      </span>
+      <span class="row-qty{{if not .Enough}} zero{{end}}" title="{{.Free}} free of {{.Have}} on the shelf">{{.Free}} / {{.Quantity}}</span>
+      <form method="post" action="/project-parts/{{.ID}}/delete">
+        <button class="btn tiny danger" type="submit" aria-label="Remove {{.Label}}">×</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">Nothing listed yet.</p>
+  {{end}}
+
+  <form class="price-add" method="post" action="/projects/{{$p.ID}}/parts">
+    <select name="item_id">
+      <option value="">— a part you own —</option>
+      {{range $d.AllItems}}<option value="{{.ID}}">{{.Name}} ({{.Available}} free of {{.Quantity}})</option>{{end}}
+    </select>
+    <input name="name" placeholder="…or something you don't own yet">
+    <input name="quantity" type="number" min="1" value="1" aria-label="Quantity needed">
+    <button class="btn" type="submit">Add part</button>
+  </form>
+
+  {{if $d.Assemblies}}
+  <details class="tuck">
+    <summary>Use another project as a sub-assembly</summary>
+    <form class="price-add" method="post" action="/projects/{{$p.ID}}/sub">
+      <select name="sub_project_id" required>
+        <option value="">— a project to build and put inside this one —</option>
+        {{range $d.Assemblies}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+      <input name="quantity" type="number" min="1" value="1" aria-label="How many">
+      <button class="btn" type="submit">Add sub-assembly</button>
+    </form>
+    <p class="muted small">Its own parts count towards this project's shortfall, its reservations
+      and what building this takes off the shelf — so a power module you use three times is
+      counted three times.</p>
+  </details>
+  {{end}}
+</section>
+
+<section class="panel-block">
+  <div class="section-head"><h2>Build log</h2></div>
+  <form class="log-add" method="post" action="/projects/{{$p.ID}}/log" enctype="multipart/form-data">
+    <textarea name="body" rows="3" placeholder="What you did, what it measured, which pin you got wrong…"></textarea>
+    <div class="import-row">
+      <input type="file" name="photos" accept="image/*" multiple>
+      <button class="btn" type="submit">Add entry</button>
+    </div>
+  </form>
+
+  {{if $d.Log}}
+  <ol class="log-entries">
+    {{range $d.Log}}
+    <li>
+      <div class="log-head">
+        <b>{{.CreatedAt.Local.Format "2 Jan 2006, 15:04"}}</b>
+        {{if .Author}}<span class="muted">{{.Author}}</span>{{end}}
+        <form method="post" action="/log/{{.ID}}/delete" data-confirm="Delete this build-log entry?">
+          <button class="btn tiny danger" type="submit" aria-label="Delete entry">×</button>
+        </form>
+      </div>
+      {{if .Body}}<div class="log-body">{{range .Lines}}<p>{{.}}</p>{{end}}</div>{{end}}
+      {{if .Photos}}
+      <div class="strip">
+        {{range .Photos}}
+        <a class="shot" href="/media/{{.Filename}}" target="_blank" rel="noopener">
+          <img src="/media/thumb/{{.Filename}}" alt="" loading="lazy">
+        </a>
+        {{end}}
+      </div>
+      {{end}}
+    </li>
+    {{end}}
+  </ol>
+  {{else}}
+  <p class="muted">Nothing written down yet. Six months from now you will wish there were.</p>
+  {{end}}
+</section>
+
+{{if $d.Suggestions}}
+<section class="panel-block">
+  <div class="section-head">
+    <h2>You already own these</h2>
+    <span class="muted">they speak {{range $i, $io := $p.Interfaces}}{{if $i}}, {{end}}{{$io}}{{end}}</span>
+  </div>
+  <ul class="grid">
+    {{range $d.Suggestions}}{{template "itemCard" .}}{{end}}
+  </ul>
+</section>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

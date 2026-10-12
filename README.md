@@ -15,7 +15,7 @@ One Go binary, one SQLite file, one folder of photos. No database server, no
 ## Running it
 
 ```sh
-go build -o backoffice .
+go build -o backoffice ./cmd/backoffice
 ./backoffice          # http://localhost:8080, data in ./data
 ```
 
@@ -25,7 +25,7 @@ For a Pi or any other ARM box, build it anywhere and copy the binary over — it
 has no runtime dependencies, not even libc:
 
 ```sh
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o backoffice .
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o backoffice ./cmd/backoffice
 ```
 
 Upgrading is replacing the binary. The database migrates itself on startup.
@@ -47,6 +47,10 @@ shop's real delivery time from how long past orders actually took.
 than what's on the shelf. Import a BOM from KiCad or EasyEDA and it matches
 lines against parts you already own.
 
+Each one has a checklist. Paste a plan — bullets, numbering and `[ ]` come off,
+`2.54mm` stays — and tick it off as you go; the bar shows on the project list so
+you can see what's half-finished without opening anything.
+
 **Wiring.** Record which pin goes where and it draws it. Colours follow bench
 convention — red power, black ground, dashed interrupts — so the picture and
 the wire in your hand agree. The pin budget counts whether the board you picked
@@ -60,6 +64,35 @@ phone opens that part's page with the count buttons under your thumb.
 **Cases.** Search Printables for an enclosure, keep the good ones against the
 part. Give it the STL and it parses the mesh, measures the real bounding box
 and renders a preview, so you know whether it fits before a six-hour print.
+
+**Printing.** Record each printer properly — bed, nozzle and what it is made
+of, hotend and bed ceilings, enclosed or open, direct or bowden, whether you
+can dry filament — and it works out which filaments it will actually take.
+Nylon CF on a stock Ender 3 comes back *not as it stands*, with the five
+reasons and what each one costs to fix. An unrecorded figure is treated as
+unknown rather than as zero, so a half-filled form does not produce a machine
+that cannot reach any temperature.
+
+If the printer is on the network it can also take the print. Moonraker covers
+anything running Klipper — the Neptune 4 family ships with it — and OctoPrint
+covers most of the rest. Send sliced G-code, optionally start it, and the file
+is kept against the part it was for, so next month's reprint is one button.
+The dashboard shows what each printer is doing without waiting on one that's
+switched off. It won't take an STL: a printer runs G-code, and slicing needs a
+slicer, which isn't something to hide inside a single binary.
+
+**Firmware.** The shelf counts six ESP32s; this records which one is in the
+greenhouse running what. Keep the image with its SHA-256 and the page gives
+you the command to put it back — `esptool` with the right `--chip`, `avrdude`
+for an Uno or a Pro Micro, or BOOTSEL-and-copy for a UF2. It doesn't flash
+anything itself: the board is plugged into your laptop, not the server, and a
+browser can't reach a serial port over plain HTTP.
+
+**Machines.** The homelab is a shelf that's switched on. Each box gets its
+address, OS, the image it was installed from and that image's published
+checksum, what it runs on, and what it draws. The page checks each one with a
+TCP connection to a port you choose (no ping, so no root) and adds up the power
+— leaving out machines with no figure rather than counting them as zero.
 
 ![Looking for a case](docs/cases.png)
 
@@ -188,7 +221,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 186 tests
+go test ./...          # 256 tests
 go test -race ./...
 go vet ./...
 ```

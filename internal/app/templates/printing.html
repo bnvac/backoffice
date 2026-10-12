@@ -1,0 +1,279 @@
+{{define "printing.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Printing</span></nav>
+
+<div class="folder-head">
+  <h1>Printing</h1>
+  <div class="folder-actions">
+    <a class="chip sm" href="/workshop">Workshop</a>
+    <a class="chip sm" href="/prints">Find a model ↗</a>
+  </div>
+</div>
+
+<p class="lede">What the machines will actually take. Whether a filament runs is a question
+about the hotend, the bed, the box around it, the nozzle and the spool all at once — so the
+printer gets recorded properly and the answer gets worked out.</p>
+
+{{/* --- the machines ------------------------------------------------------- */}}
+
+<h2>Your printers</h2>
+
+{{if $d.Printers}}
+<ul class="printers">
+  {{range $d.Printers}}
+  {{$pr := .}}
+  <li class="printer{{if and $d.Edit (eq $d.Edit.ID .ID)}} editing{{end}}">
+    <div class="printer-head">
+      <b class="printer-name">{{.Name}}</b>
+      <div class="actions">
+        <a class="btn tiny" href="/printing?edit={{.ID}}#edit">Edit</a>
+        <form method="post" action="/printing/printers/{{.ID}}/delete"
+              data-confirm="Remove {{.Name}}? Its print history goes with it.">
+          <button class="btn tiny danger" type="submit">Remove</button>
+        </form>
+      </div>
+    </div>
+
+    {{if .Asked}}
+    <div class="print-state s-{{.Status.State}}">
+      <span class="dot" aria-hidden="true"></span>
+      <b>{{.Status.Headline}}</b>
+      {{if .Status.File}}<span class="muted small">{{.Status.File}}</span>{{end}}
+    </div>
+    {{if .Status.Printing}}
+    <div class="budget-bar print-bar"><span style="width: {{.Status.Percent}}%"></span></div>
+    {{end}}
+    {{if .StatusErr}}<p class="muted small">{{.StatusErr}}</p>{{end}}
+    {{else if .LinkKind}}
+    <p class="muted small">{{.LinkLabel}}, but no address yet —
+      <a href="/printing?edit={{.ID}}#edit">add it</a> to send prints and see what it is doing.</p>
+    {{end}}
+
+    <div class="spec">
+      {{if .Bed.Known}}<span class="fact"><i>Bed</i>{{.Bed}}</span>{{end}}
+      {{if .NozzleLabel}}<span class="fact"><i>Nozzle</i>{{.NozzleLabel}}</span>{{end}}
+      {{if .MaxHotend}}<span class="fact"><i>Hotend</i>{{.MaxHotend}} °C</span>{{end}}
+      {{if .MaxBed}}<span class="fact"><i>Bed max</i>{{.MaxBed}} °C</span>{{end}}
+      <span class="fact"><i>Feed</i>{{.Feed}}</span>
+      <span class="fact"><i>Chamber</i>{{if .Enclosed}}enclosed{{else}}open{{end}}</span>
+      <span class="fact"><i>Drying</i>{{if .Dryer}}yes{{else}}no{{end}}</span>
+    </div>
+    {{if .Notes}}<p class="muted small">{{.Notes}}</p>{{end}}
+
+    {{if .Connected}}
+    <details class="send">
+      <summary class="btn tiny">Send G-code</summary>
+      <form method="post" action="/printing/printers/{{.ID}}/send" enctype="multipart/form-data" class="stack">
+        <label>Sliced file
+          <input type="file" name="gcode" accept=".gcode,.gco,.g" required>
+        </label>
+        {{if $d.Items}}
+        <label>Printed for <span class="muted">— optional, keeps it against the part</span>
+          <select name="item_id">
+            <option value="">nothing in particular</option>
+            {{range $d.Items}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+        </label>
+        {{end}}
+        <label class="inline-check"><input type="checkbox" name="start">
+          Start printing as soon as it arrives</label>
+        <p class="muted small">G-code only, up to {{$d.Limit}}. An STL has to be sliced for this
+          printer first. The file is kept here either way, so it can be sent again.</p>
+        <div class="actions"><button class="btn primary" type="submit">Send to {{.Name}}</button></div>
+      </form>
+    </details>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="empty small">No printers yet. Add one below and the filament list fills itself in.</p>
+{{end}}
+
+{{with $d.Jobs}}
+<h3 class="sub-head">Sent recently</h3>
+<ul class="rows jobs">
+  {{range .}}
+  <li class="{{if not .OK}}failed{{end}}">
+    <span class="job-state" aria-hidden="true">{{if not .OK}}✕{{else if .Started}}▶{{else}}↑{{end}}</span>
+    <span class="row-item">
+      <span class="job-body">
+        <span class="row-name">{{.Name}}</span>
+        <span class="muted small">
+          to {{.Printer}}{{if .ItemName}} · for <a href="/items/{{.ItemRef}}">{{.ItemName}}</a>{{end}}
+          · {{.SizeLabel}} · {{since .SentAt}}
+          {{if not .OK}}<br><span class="warn">{{.Error}}</span>{{else if .Started}} · started{{end}}
+        </span>
+      </span>
+    </span>
+    <a class="btn tiny ghost" href="/printing/jobs/{{.ID}}/file">Download</a>
+    <form method="post" action="/printing/jobs/{{.ID}}/resend" class="inline">
+      <button class="btn tiny" type="submit">Send again</button>
+    </form>
+  </li>
+  {{end}}
+</ul>
+{{end}}
+
+{{/* --- add / edit --------------------------------------------------------- */}}
+
+<details class="panel" id="edit" {{if or $d.Edit (not $d.Printers)}}open{{end}}>
+  <summary class="btn">{{if $d.Edit}}Editing {{$d.Edit.Name}}{{else}}Add a printer{{end}}</summary>
+
+  {{if not $d.Edit}}
+  <div class="filter-row presets">
+    <span class="filter-label">Preset</span>
+    {{range $d.Presets}}
+    <form method="post" action="/printing/printers" class="inline">
+      <input type="hidden" name="preset" value="{{.Name}}">
+      <button class="chip sm preset" type="submit">{{.Name}}</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="muted small">Starting points from the published specifications. Nozzles get
+  swapped and hotends get upgraded, so check the result against the machine in front of
+  you — the numbers are what the answers are built on.</p>
+  {{end}}
+
+  <form method="post" class="stack"
+        action="{{if $d.Edit}}/printing/printers/{{$d.Edit.ID}}{{else}}/printing/printers{{end}}">
+    <input type="hidden" name="edited" value="1">
+
+    <label>Name
+      <input name="name" required autocomplete="off" placeholder="Prusa MK4S"
+             value="{{with $d.Edit}}{{.Name}}{{end}}">
+    </label>
+
+    <fieldset class="spec-group">
+      <legend>Bed, in millimetres</legend>
+      <div class="field-row">
+        <label>Width <input name="bed_x" type="number" step="any" min="0" placeholder="250"
+               value="{{with $d.Edit}}{{if .Bed.X}}{{.Bed.X}}{{end}}{{end}}"></label>
+        <label>Depth <input name="bed_y" type="number" step="any" min="0" placeholder="210"
+               value="{{with $d.Edit}}{{if .Bed.Y}}{{.Bed.Y}}{{end}}{{end}}"></label>
+        <label>Height <input name="bed_z" type="number" step="any" min="0" placeholder="220"
+               value="{{with $d.Edit}}{{if .Bed.Z}}{{.Bed.Z}}{{end}}{{end}}"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="spec-group">
+      <legend>Hot end <em>— leave a box empty if you do not know; empty means unknown, not zero</em></legend>
+      <div class="field-row">
+        <label>Nozzle, mm
+          <input name="nozzle" type="number" step="any" min="0" placeholder="0.4"
+                 value="{{with $d.Edit}}{{if .Nozzle}}{{.Nozzle}}{{end}}{{end}}">
+        </label>
+        <label>Nozzle material
+          <select name="nozzle_kind">
+            {{range $d.Nozzles}}
+            <option value="{{.Key}}"
+              {{if $d.Edit}}{{if eq $d.Edit.NozzleKind .Key}}selected{{end}}{{end}}>{{.Label}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label>Max nozzle °C
+          <input name="max_hotend" type="number" min="0" placeholder="290"
+                 value="{{with $d.Edit}}{{if .MaxHotend}}{{.MaxHotend}}{{end}}{{end}}">
+        </label>
+        <label>Max bed °C
+          <input name="max_bed" type="number" min="0" placeholder="120"
+                 value="{{with $d.Edit}}{{if .MaxBed}}{{.MaxBed}}{{end}}{{end}}">
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="spec-group">
+      <legend>The rest of it</legend>
+      <label class="inline-check">
+        <input type="checkbox" name="enclosed" {{with $d.Edit}}{{if .Enclosed}}checked{{end}}{{end}}>
+        Enclosed — a chamber, a cover, or a box over the top
+      </label>
+      <label class="inline-check">
+        <input type="checkbox" name="direct_drive" {{with $d.Edit}}{{if .DirectDrive}}checked{{end}}{{end}}>
+        Direct drive rather than bowden
+      </label>
+      <label class="inline-check">
+        <input type="checkbox" name="dryer" {{with $d.Edit}}{{if .Dryer}}checked{{end}}{{end}}>
+        I can dry filament — a dryer, or a dehydrator with the trays out
+      </label>
+    </fieldset>
+
+    <fieldset class="spec-group">
+      <legend>On the network <em>— to send prints and see what it is doing</em></legend>
+      <div class="field-row">
+        <label>Talks
+          <select name="link_kind">
+            {{range $d.Links}}
+            <option value="{{.Key}}" {{if $d.Edit}}{{if eq $d.Edit.LinkKind .Key}}selected{{end}}{{end}}>{{.Label}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label>Address
+          <input name="link_url" autocomplete="off" inputmode="url"
+                 placeholder="http://192.168.1.50:7125"
+                 value="{{with $d.Edit}}{{.LinkURL}}{{end}}">
+        </label>
+        <label>API key <span class="muted">— optional</span>
+          <input name="link_key" type="password" autocomplete="off"
+                 placeholder="{{if $d.Edit}}{{if $d.Edit.HasKey}}saved — leave blank to keep{{else}}none{{end}}{{else}}none{{end}}">
+        </label>
+      </div>
+      {{if $d.Edit}}{{if $d.Edit.HasKey}}
+      <label class="inline-check"><input type="checkbox" name="clear_key"> Forget the saved key</label>
+      {{end}}{{end}}
+      <p class="muted small">A Neptune 4 answers at its IP address on port 7125, or on the same
+        address you open Fluidd at. Stock firmware does not use a key. OctoPrint's key is under
+        Settings → API.</p>
+    </fieldset>
+
+    <label>Notes
+      <input name="notes" autocomplete="off" placeholder="bed is warped at the back left"
+             value="{{with $d.Edit}}{{.Notes}}{{end}}">
+    </label>
+
+    <div class="actions">
+      <button class="btn primary" type="submit">{{if $d.Edit}}Save{{else}}Add it{{end}}</button>
+      {{if $d.Edit}}<a class="btn ghost" href="/printing">Cancel</a>{{end}}
+    </div>
+  </form>
+</details>
+
+{{/* --- what it can take ---------------------------------------------------- */}}
+
+{{if $d.Rows}}
+<h2>What you can load</h2>
+<p class="muted page-sub">Across every machine you own. Press one for the long answer.</p>
+
+<ul class="mats">
+  {{range $d.Rows}}
+  {{$c := .Best}}
+  <li class="mat v-{{$c.Verdict}}">
+    <a class="mat-head" href="/printing/material/{{.Material.Key}}">
+      <span class="mat-name">{{.Material.Name}}</span>
+      {{if .Material.Also}}<span class="mat-also">{{.Material.Also}}</span>{{end}}
+      <span class="mat-verdict">{{$c.Headline}}</span>
+    </a>
+
+    <p class="mat-note">{{.Material.Note}}</p>
+
+    {{if .Runs}}
+      <p class="mat-why">On your <b>{{$c.Printer}}</b>.
+      {{range $c.Cautions}}<span class="caution">{{.}}</span>{{end}}</p>
+    {{else}}
+      <p class="mat-why">Closest is your <b>{{$c.Printer}}</b>, but
+      {{range $i, $b := $c.Blockers}}{{if $i}}, and {{end}}it {{$b}}{{end}}.</p>
+      {{with $c.Upgrades}}
+      <ul class="upgrades">
+        {{range .}}<li><b>{{.What}}</b> <span class="rough">{{.Rough}}</span><span class="why">{{.Why}}</span></li>{{end}}
+      </ul>
+      {{end}}
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

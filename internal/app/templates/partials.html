@@ -1,0 +1,152 @@
+{{/* itemCard is the grid tile, shared by the dashboard, the all-items grid and
+     each folder view so they cannot drift apart. */}}
+
+{{/* makerMark is the maker's logo where there is one and its monogram where
+     there is not, so a maker is never a blank space. The logo comes from a
+     cached lookup rather than the item, which is what lets every card ask. */}}
+{{define "makerMark"}}
+  {{$logo := makerLogo .}}
+  {{if $logo}}<img class="maker-mark tiny logo" src="/media/thumb/{{$logo}}" alt="" loading="lazy" decoding="async">
+  {{else}}<span class="maker-mark tiny" style="--hue: {{hue .}}">{{monogram .}}</span>{{end}}
+{{end}}
+{{define "itemCard"}}
+<li class="card" data-id="{{.ID}}">
+  <a class="thumb" href="/items/{{.ID}}">
+    {{if .Thumb}}
+      <img src="/media/thumb/{{.Thumb}}" alt="{{.Name}}" loading="lazy" decoding="async">
+    {{else}}
+      <span class="noimg">{{initials .Name}}</span>
+    {{end}}
+    {{if gt (len .Photos) 1}}<span class="count">{{len .Photos}}</span>{{end}}
+    {{with .Best}}<span class="price-tag">{{.Display}}</span>{{end}}
+  </a>
+  <div class="body">
+    <a class="name" href="/items/{{.ID}}">{{.Name}}</a>
+    {{if .Value}}<div class="val">{{.Value}}</div>{{end}}
+    {{if .Location}}<div class="loc">{{.Location}}</div>{{end}}
+    {{if .Manufacturer}}<div class="mk">{{template "makerMark" .Manufacturer}}{{.Manufacturer}}</div>{{end}}
+    {{if .FolderName}}<div class="fold"><a href="/folders/{{.FolderRef}}">{{.FolderName}}</a></div>{{end}}
+    {{if .Interfaces}}
+    <div class="card-io">
+      {{range .Interfaces}}<span class="io-pill" title="{{.}}">{{ioIcon .}}</span>{{end}}
+    </div>
+    {{end}}
+    {{if .Tags}}
+    <div class="card-tags">
+      {{range .Tags}}<a class="chip xs" href="/items?tag={{.Name}}">{{if .Icon}}<span class="ti">{{.Icon}}</span>{{end}}{{.Name}}</a>{{end}}
+    </div>
+    {{end}}
+    <div class="qty" data-qty-for="{{.ID}}">
+      <form method="post" action="/items/{{.ID}}/quantity" class="step">
+        <input type="hidden" name="delta" value="-1">
+        <button class="btn tiny" type="submit" aria-label="Remove one {{.Name}}">−</button>
+      </form>
+      <output class="n{{if eq .Quantity 0}} zero{{end}}">{{.Quantity}}</output>
+      {{if .Committed}}<span class="reserved" title="{{.ClaimNote}}">{{.Available}} free</span>{{end}}
+      <form method="post" action="/items/{{.ID}}/quantity" class="step">
+        <input type="hidden" name="delta" value="1">
+        <button class="btn tiny" type="submit" aria-label="Add one {{.Name}}">+</button>
+      </form>
+    </div>
+  </div>
+</li>
+{{end}}
+
+{{/* filterChips renders the type / location / maker / IO / tag rows. Expects a
+     dict of "Query" plus any of "Categories", "Locations", "Makers", "IO" and
+     "Tags"; each row is skipped when its list is empty. */}}
+{{define "filterChips"}}
+{{$q := .Query}}
+{{if or .Categories .Locations .Tags .IO .Makers}}
+<div class="filters">
+  {{if .Categories}}
+  <div class="filter-row">
+    <span class="filter-label">Type</span>
+    {{range .Categories}}
+      <a class="chip{{if eq $q.Category .Value}} on{{end}}" href="{{query $q "category" .Value}}">{{.Value}} <span class="n">{{.Count}}</span></a>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .Locations}}
+  <div class="filter-row">
+    <span class="filter-label">Where</span>
+    {{range .Locations}}
+      <a class="chip{{if eq $q.Location .Value}} on{{end}}" href="{{query $q "location" .Value}}">{{.Value}} <span class="n">{{.Count}}</span></a>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .Makers}}
+  <div class="filter-row">
+    <span class="filter-label">Made by</span>
+    {{range .Makers}}
+      <a class="chip{{if eq $q.Manufacturer .Value}} on{{end}}" href="{{query $q "manufacturer" .Value}}">
+        {{template "makerMark" .Value}}{{.Value}} <span class="n">{{.Count}}</span></a>
+    {{end}}
+    <a class="chip sm" href="/manufacturers">all makers ↗</a>
+  </div>
+  {{end}}
+  {{if .IO}}
+  <div class="filter-row">
+    <span class="filter-label">IO</span>
+    {{range .IO}}
+      <a class="chip{{if hasIO $q .Value}} on{{end}}" href="{{toggleIO $q .Value}}"><span class="ti">{{.Icon}}</span>{{.Value}} <span class="n">{{.Count}}</span></a>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .Tags}}
+  <div class="filter-row">
+    <span class="filter-label">Tags</span>
+    {{range .Tags}}
+      <a class="chip{{if hasTag $q .Value}} on{{end}}" href="{{toggleTag $q .Value}}">{{if .Icon}}<span class="ti">{{.Icon}}</span>{{end}}{{.Value}} <span class="n">{{.Count}}</span></a>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{/* sortBar renders the count line plus the sort and export controls. Expects
+     "Query", "Shown", "Total" and "Filtered". */}}
+{{define "sortBar"}}
+{{$q := .Query}}
+<div class="bar">
+  <span class="muted">
+    {{.Shown}} shown{{if .Filtered}} of {{.Total}}{{end}}
+    {{if .Filtered}} · <a href="{{$q.Path}}">clear filters</a>{{end}}
+  </span>
+  <span class="sorts">
+    <a class="chip sm{{if or (eq $q.Sort "") (eq $q.Sort "recent")}} on{{end}}" href="{{query $q "sort" "recent"}}">Recent</a>
+    <a class="chip sm{{if eq $q.Sort "name"}} on{{end}}" href="{{query $q "sort" "name"}}">A–Z</a>
+    <a class="chip sm{{if eq $q.Sort "low"}} on{{end}}" href="{{query $q "sort" "low"}}">Low stock</a>
+    <a class="chip sm" href="{{$q.LabelsURL "qr"}}">Labels</a>
+    <a class="chip sm" href="/export.csv">CSV</a>
+  </span>
+</div>
+{{end}}
+
+{{/* A project as a card, on the dashboard and the projects list alike. One
+     copy, because two copies is how the dashboard's lost its progress bar. */}}
+{{define "project-card"}}
+{{$p := .Project}}
+<li class="folder-card">
+  <a href="/projects/{{$p.ID}}">
+    <div class="folder-icon">{{if $p.Ready}}✅{{else}}🧰{{end}}</div>
+    <div class="folder-body">
+      <b>{{$p.Name}}</b>
+      <span class="muted">
+        {{len $p.Parts}} part{{if ne (len $p.Parts) 1}}s{{end}}
+        {{with $p.Shortfall}} · {{len .}} to get{{end}}
+      </span>
+      <span class="muted sub">{{$p.Status}} · {{since $p.UpdatedAt}}</span>
+      {{with .Progress}}{{if .Any}}
+      <span class="card-progress">
+        <span class="budget-bar steps-bar{{if .Complete}} done{{end}}">
+          <span style="width: {{.Percent}}%"></span>
+        </span>
+        <span class="muted sub">{{.Left}}</span>
+      </span>
+      {{end}}{{end}}
+    </div>
+  </a>
+</li>
+{{end}}

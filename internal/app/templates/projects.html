@@ -1,0 +1,35 @@
+{{define "projects.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<p class="crumb"><a href="/">← Dashboard</a></p>
+<div class="folder-head">
+  <h1>Projects</h1>
+  <div class="folder-actions">
+    <details class="inline-form">
+      <summary class="btn primary">+ New project</summary>
+      <form method="post" action="/projects">
+        <input name="name" placeholder="Greenhouse monitor" required>
+        <input name="notes" placeholder="What it does (optional)">
+        <button class="btn primary" type="submit">Create</button>
+      </form>
+    </details>
+  </div>
+</div>
+
+{{if $d.Projects}}
+<ul class="folders">
+  {{range $d.Projects}}
+  {{template "project-card" dict "Project" . "Progress" (index $d.Progress .ID)}}
+  {{end}}
+</ul>
+{{else}}
+<div class="empty small">
+  <p><strong>No projects yet.</strong></p>
+  <p class="muted">A project is a parts list for something you're building. Backoffice checks it
+    against the shelf and tells you what's missing.</p>
+</div>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

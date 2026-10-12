@@ -9,7 +9,7 @@ RUN go mod download
 
 COPY . .
 # Pure-Go SQLite means CGO stays off and the binary is fully static.
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /backoffice .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /backoffice ./cmd/backoffice
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata wget

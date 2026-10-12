@@ -1,0 +1,89 @@
+{{define "prints.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Prints</span></nav>
+
+<div class="folder-head"><h1>Prints</h1></div>
+
+<form class="search" method="get" action="/prints">
+  <input type="search" name="q" value="{{$d.Query}}" autocomplete="off" autofocus
+         aria-label="Search printable models"
+         placeholder="A bracket, a knob, a drawer insert, a case for anything…">
+  <button class="btn primary" type="submit">Search</button>
+</form>
+
+{{if not $d.Searched}}
+<p class="lede">Search {{range $i, $s := $d.Sources}}{{if $i}} and {{end}}{{$s}}{{end}} for anything
+printable. This is the plain version — the case hunt on a part's own page starts from
+that part and guesses the words for you.</p>
+<div class="filter-row">
+  <span class="filter-label">Try</span>
+  {{range $t := slice "project box" "drawer insert" "cable clip" "panel mount" "knob" "pi 5 case"}}
+  <a class="chip" href="/prints?q={{$t}}">{{$t}}</a>
+  {{end}}
+</div>
+{{end}}
+
+{{range $d.Notes}}<div class="toast bad inline">{{.}}</div>{{end}}
+
+{{if $d.Results}}
+<p class="muted page-sub">{{len $d.Results}} from
+  {{range $i, $s := $d.Sources}}{{if $i}}, {{end}}{{$s}}{{end}}.
+  {{if $d.Caps.BuildVolume.Known}}Your bed is {{$d.Caps.BuildVolume}} — check the size before
+  you commit to a long print.{{end}}
+  Download counts are the only real review signal these sites have.</p>
+
+<ul class="grid models">
+  {{range $d.Results}}
+  <li class="card">
+    <a class="thumb model-thumb" href="{{.URL}}" target="_blank" rel="noreferrer noopener">
+      {{if .ImageURL}}
+        <img src="/media/remote?u={{.ImageURL}}" alt="{{.Title}}" loading="lazy" decoding="async">
+      {{else}}<span class="noimg">◍</span>{{end}}
+      <span class="price-tag">{{.Source}}</span>
+    </a>
+    <div class="body">
+      <a class="name" href="{{.URL}}" target="_blank" rel="noreferrer noopener">{{.Title}}</a>
+      {{if .Author}}<div class="loc">by {{.Author}}</div>{{end}}
+      {{if .Stats}}<div class="val">{{.Stats}}</div>{{end}}
+
+      {{if $d.Items}}
+      <details class="inline-form keep-print">
+        <summary class="btn tiny">Keep it</summary>
+        <form method="post" action="/prints/keep" class="stack">
+          <input type="hidden" name="q" value="{{$d.Query}}">
+          <input type="hidden" name="source" value="{{.Source}}">
+          <input type="hidden" name="title" value="{{.Title}}">
+          <input type="hidden" name="url" value="{{.URL}}">
+          <input type="hidden" name="author" value="{{.Author}}">
+          <input type="hidden" name="licence" value="{{.Licence}}">
+          <input type="hidden" name="image_url" value="{{.ImageURL}}">
+          <label>Against which part?
+            <select name="item_id" aria-label="Part to keep this against">
+              {{range $d.Items}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+            </select>
+          </label>
+          <button class="btn primary tiny" type="submit">Keep</button>
+        </form>
+      </details>
+      {{end}}
+    </div>
+  </li>
+  {{end}}
+</ul>
+
+{{with $d.Elsewhere}}
+<div class="filter-row">
+  <span class="filter-label">Also</span>
+  {{range .}}<a class="chip sm" href="{{.URL}}" target="_blank" rel="noreferrer noopener">{{.Name}} ↗</a>{{end}}
+</div>
+{{end}}
+
+{{else if $d.Searched}}
+<p class="empty">Nothing came back for that. These sites match on title, so plainer words
+usually find more — “pi 5 case” beats “Raspberry Pi 5 enclosure with fan mount”.</p>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

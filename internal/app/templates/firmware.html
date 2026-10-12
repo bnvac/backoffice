@@ -1,0 +1,92 @@
+{{define "firmware.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Firmware</span></nav>
+
+<div class="folder-head">
+  <h1>Firmware</h1>
+  <div class="folder-actions"><a class="chip sm" href="/machines">Machines</a></div>
+</div>
+
+<p class="lede">What is on each board. The shelf counts six ESP32s; this says which one is in
+the greenhouse running what, and keeps the image so a dead board can be flashed again next
+year without finding the source.</p>
+
+{{if $d.Flashes}}
+<table class="grid-table flashes">
+  <thead>
+    <tr><th>Board</th><th>Which</th><th>Running</th><th>Since</th><th>Image</th></tr>
+  </thead>
+  <tbody>
+    {{range $d.Flashes}}
+    <tr class="{{if not .Current}}replaced{{end}}">
+      <td>{{if .ItemRef}}<a href="/items/{{.ItemRef}}">{{.ItemName}}</a>{{else}}<span class="muted">{{.Board}}</span>{{end}}</td>
+      <td>{{if .Unit}}{{.Unit}}{{else}}<span class="muted">—</span>{{end}}</td>
+      <td>
+        <a href="/firmware/{{.ID}}"><b>{{.Firmware}}</b></a>{{if .Version}} <span class="muted">{{.Version}}</span>{{end}}
+        {{if .ProjectRef}}<br><span class="muted small">for <a href="/projects/{{.ProjectRef}}">{{.ProjectName}}</a></span>{{end}}
+        {{if not .Current}}<br><span class="muted small">since replaced</span>{{end}}
+      </td>
+      <td class="muted">{{.FlashedDate}}</td>
+      <td>{{if .HasFile}}<code title="{{.SHA256}}">{{.ShortSum}}</code> <span class="muted small">{{.SizeLabel}}</span>{{else}}<span class="muted">not kept</span>{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty small">Nothing recorded yet. Flash something, then say so below.</p>
+{{end}}
+
+<details class="panel" {{if not $d.Flashes}}open{{end}}>
+  <summary class="btn">Record what is on a board</summary>
+  {{template "flash-form" dict "Items" $d.Items "Projects" $d.Projects "Limit" $d.Limit "Return" "/firmware" "Item" 0}}
+</details>
+
+{{template "bottom" .}}
+{{end}}
+
+{{/* Shared with the part page, which passes its own item in. */}}
+{{define "flash-form"}}
+<form method="post" action="/firmware" enctype="multipart/form-data" class="stack">
+  <input type="hidden" name="return" value="{{.Return}}">
+  <div class="field-row">
+    <label>Board
+      <select name="item_id">
+        <option value="">not on the shelf</option>
+        {{$sel := .Item}}
+        {{range .Items}}<option value="{{.ID}}" {{if eq .ID $sel}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </label>
+    <label>Which one <span class="muted">— a sticker, a MAC, where it is</span>
+      <input name="unit" autocomplete="off" placeholder="greenhouse">
+    </label>
+  </div>
+  <div class="field-row">
+    <label>Firmware
+      <input name="firmware" required autocomplete="off" placeholder="greenhouse-logger, ESPHome, MicroPython">
+    </label>
+    <label>Version <span class="muted">— a tag, a date, a commit</span>
+      <input name="version" autocomplete="off" placeholder="v1.2 / 3f9a2c1">
+    </label>
+    <label>Flashed on
+      <input name="flashed_at" type="date">
+    </label>
+  </div>
+  {{if .Projects}}
+  <label>For a project
+    <select name="project_id">
+      <option value="">none</option>
+      {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+  </label>
+  {{end}}
+  <label>The image <span class="muted">— optional, up to {{.Limit}}: .bin, .uf2, .hex or .elf</span>
+    <input type="file" name="image" accept=".bin,.uf2,.hex,.elf">
+  </label>
+  <label>Notes
+    <input name="notes" autocomplete="off" placeholder="Wi-Fi creds baked in; OTA password in the vault">
+  </label>
+  <div class="actions"><button class="btn primary" type="submit">Record it</button></div>
+</form>
+{{end}}
