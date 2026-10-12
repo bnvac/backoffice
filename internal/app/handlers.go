@@ -217,6 +217,15 @@ type itemData struct {
 	LandErr  string
 	Maker    Manufacturer
 	Incoming int // on its way from an order that has not arrived
+
+	// What is flashed on these and where they are running. Read only if the
+	// page will show them; a resistor has neither.
+	Flashes  []Flash
+	Machines []Machine
+	Prints   []PrintJob
+	AllItems []Item
+	Projects []Project
+	FwLimit  string
 }
 
 func (a *App) handleItem(w http.ResponseWriter, r *http.Request) {
@@ -242,6 +251,19 @@ func (a *App) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 	if it.Manufacturer != "" {
 		data.Maker, _ = a.store.GetManufacturer(it.Manufacturer)
+	}
+	// None of these are worth failing the page over: each is a side panel.
+	data.Flashes, _ = a.store.ListFlashes(it.ID, 0)
+	data.Machines, _ = a.store.MachinesForItem(it.ID)
+	data.Prints, _ = a.store.RecentPrintJobs(it.ID, 6)
+	if a.firmware != nil {
+		data.FwLimit = a.firmware.Limit()
+	}
+	// The firmware form wants the lists, but only boards get it, so the
+	// whole-shelf query is skipped for parts that cannot run code.
+	if ProgrammableItem(it) || len(data.Flashes) > 0 {
+		data.AllItems, _ = a.store.ListItems(Query{Sort: "name"})
+		data.Projects, _ = a.store.ListProjects()
 	}
 	// The footprint is drawn from the cached file, so an item page never waits
 	// on the network: only the first lookup fetches, and that happens when the
@@ -738,7 +760,10 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 // safeNext keeps the post-login redirect on this site: only same-origin,
 // absolute paths are allowed through.
 func safeNext(next string) string {
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	// Browsers read "/\evil.com" the same as "//evil.com", so a backslash in
+	// second place is refused along with the double slash.
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") ||
+		strings.HasPrefix(next, "/\\") {
 		return "/"
 	}
 	return next

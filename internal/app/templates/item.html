@@ -320,6 +320,54 @@
       {{end}}
     </section>
 
+    {{with .Data.Machines}}
+    <section class="in-service">
+      <div class="section-head"><h2>In service</h2></div>
+      <ul class="rows plain">
+        {{range .}}<li><a href="/machines?edit={{.ID}}#edit"><b>{{.Name}}</b></a>
+          {{if .Role}}<span class="muted">— {{.Role}}</span>{{end}}
+          {{if .Address}}<code class="small">{{.Address}}</code>{{end}}</li>{{end}}
+      </ul>
+    </section>
+    {{end}}
+
+    {{if or .Data.Flashes .Data.AllItems}}
+    <section class="firmware">
+      <div class="section-head"><h2>Firmware on these</h2>
+        <a class="chip sm" href="/firmware">All boards</a></div>
+      {{with .Data.Flashes}}
+      <ul class="rows plain">
+        {{range .}}
+        <li class="{{if not .Current}}replaced{{end}}">
+          <a href="/firmware/{{.ID}}"><b>{{.Firmware}}</b></a>{{if .Version}} <span class="muted">{{.Version}}</span>{{end}}
+          <span class="muted small">{{if .Unit}}on {{.Unit}} · {{end}}{{.FlashedDate}}{{if not .Current}} · replaced{{end}}</span>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="muted small">Nothing recorded. Once one of these is running something, say what,
+      and keep the image so it can go back on.</p>
+      {{end}}
+      {{if .Data.AllItems}}
+      <details class="tuck">
+        <summary>Record what is on one</summary>
+        {{template "flash-form" dict "Items" .Data.AllItems "Projects" .Data.Projects "Limit" .Data.FwLimit "Return" (printf "/items/%d" .Data.ID) "Item" .Data.ID}}
+      </details>
+      {{end}}
+    </section>
+    {{end}}
+
+    {{with .Data.Prints}}
+    <section class="printed">
+      <div class="section-head"><h2>Printed for this</h2></div>
+      <ul class="rows plain">
+        {{range .}}<li>{{.Name}} <span class="muted small">on {{.Printer}} · {{since .SentAt}}</span>
+          <form method="post" action="/printing/jobs/{{.ID}}/resend" class="inline">
+            <button class="btn tiny" type="submit">Send again</button></form></li>{{end}}
+      </ul>
+    </section>
+    {{end}}
+
       <details class="tuck">
       <summary>{{if $it.Footprint}}Change{{else}}Set{{end}} the footprint</summary>
       <form class="price-add" method="post" action="/items/{{$it.ID}}/footprint" enctype="multipart/form-data">

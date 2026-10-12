@@ -1,0 +1,136 @@
+{{define "machines.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Machines</span></nav>
+
+<div class="folder-head">
+  <h1>Machines</h1>
+  <div class="folder-actions"><a class="chip sm" href="/firmware">Firmware</a></div>
+</div>
+
+<p class="lede">The shelf, switched on. What each box is, what is in it, what it was installed
+from, and what it depends on — so “which Debian is the NAS on, and what is plugged into that
+switch” has an answer that is not in your head.</p>
+
+{{if $d.Machines}}
+<div class="tiles">
+  <div class="tile"><b>{{len $d.Machines}}</b><span>machines</span></div>
+  {{if $d.Power.Known}}
+  <div class="tile"><b>{{$d.Power.Watts}} W</b><span>typical draw{{if $d.Power.Unknown}}, {{$d.Power.Unknown}} not counted{{end}}</span></div>
+  <div class="tile"><b>{{printf "%.0f" $d.Power.KWhPerYear}}</b><span>kWh a year</span></div>
+  {{end}}
+</div>
+
+<ul class="machines">
+  {{range $d.Machines}}
+  <li class="machine">
+    <div class="machine-head">
+      <span class="reach {{if .Up.Checked}}{{if .Up.OK}}up{{else}}down{{end}}{{end}}"
+            title="{{if .Up.Checked}}{{.Target}}: {{.Up.Label}}{{else}}not checked{{end}}" aria-hidden="true"></span>
+      <b class="printer-name">{{.Name}}</b>
+      {{if .Role}}<span class="chip xs">{{.Role}}</span>{{end}}
+      <a class="btn tiny" href="/machines?edit={{.ID}}#edit">Edit</a>
+    </div>
+    <div class="spec">
+      {{if .Address}}<span class="fact"><i>Address</i><code>{{.Address}}</code></span>{{end}}
+      {{if .Up.Checked}}<span class="fact"><i>Port {{.Port}}</i>{{.Up.Label}}</span>{{end}}
+      {{if .OS}}<span class="fact"><i>OS</i>{{.OS}}</span>{{end}}
+      {{if .Hardware}}<span class="fact"><i>Hardware</i>{{.Hardware}}</span>{{end}}
+      {{if .Location}}<span class="fact"><i>Where</i>{{.Location}}</span>{{end}}
+      {{if .Watts}}<span class="fact"><i>Draw</i>{{.Watts}} W</span>{{end}}
+      {{if .ParentName}}<span class="fact"><i>Runs on</i>{{.ParentName}}</span>{{end}}
+      {{if .ItemName}}<span class="fact"><i>From the shelf</i><a href="/items/{{.ItemRef}}">{{.ItemName}}</a></span>{{end}}
+    </div>
+    {{with .ServiceList}}
+    <div class="card-tags">{{range .}}<span class="chip xs">{{.}}</span>{{end}}</div>
+    {{end}}
+    {{if .Image}}
+    <p class="muted small image-line">Installed from <code>{{.Image}}</code>{{if .ImageSum}} · sha256 <code title="{{.ImageSum}}">{{printf "%.12s" .ImageSum}}</code>{{end}}</p>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+<p class="muted small">Up or down is a TCP connection to the port shown, made from the machine
+running Backoffice. Something it cannot reach may still be fine from your laptop.</p>
+{{else}}
+<p class="empty small">No machines yet. Start with the one this is running on.</p>
+{{end}}
+
+<details class="panel" id="edit" {{if or $d.Edit (not $d.Machines)}}open{{end}}>
+  <summary class="btn">{{if $d.Edit}}Editing {{$d.Edit.Name}}{{else}}Add a machine{{end}}</summary>
+  {{$m := $d.Edit}}
+  <form method="post" class="stack" action="{{if $m}}/machines/{{$m.ID}}{{else}}/machines{{end}}">
+    <div class="field-row">
+      <label>Name <input name="name" required autocomplete="off" placeholder="cupboard-pi"
+             value="{{with $m}}{{.Name}}{{end}}"></label>
+      <label>Role <input name="role" autocomplete="off" placeholder="Home Assistant"
+             value="{{with $m}}{{.Role}}{{end}}"></label>
+    </div>
+    <div class="field-row">
+      <label>Address <input name="address" autocomplete="off" placeholder="192.168.1.20 or nas.lan"
+             value="{{with $m}}{{.Address}}{{end}}"></label>
+      <label>Port to check <span class="muted">— 0 to skip</span>
+        <input name="port" type="number" min="0" max="65535" placeholder="22"
+               value="{{with $m}}{{.Port}}{{end}}"></label>
+      <label>MAC <input name="mac" autocomplete="off" placeholder="dc:a6:32:…"
+             value="{{with $m}}{{.MAC}}{{end}}"></label>
+    </div>
+    <div class="field-row">
+      <label>OS <input name="os" autocomplete="off" placeholder="Debian 12"
+             value="{{with $m}}{{.OS}}{{end}}"></label>
+      <label>Installed from <input name="image" autocomplete="off"
+             placeholder="2024-11-19-raspios-bookworm-arm64-lite.img.xz"
+             value="{{with $m}}{{.Image}}{{end}}"></label>
+    </div>
+    <label>Image checksum <span class="muted">— the SHA-256 the download page published; paste the whole line if you like</span>
+      <input name="image_sum" autocomplete="off" spellcheck="false" class="mono"
+             value="{{with $m}}{{.ImageSum}}{{end}}">
+    </label>
+    <div class="field-row">
+      <label>Hardware <input name="hardware" autocomplete="off" placeholder="Pi 5 8GB, 256GB NVMe"
+             value="{{with $m}}{{.Hardware}}{{end}}"></label>
+      <label>Where <input name="location" autocomplete="off" placeholder="hall cupboard, top shelf"
+             value="{{with $m}}{{.Location}}{{end}}"></label>
+      <label>Typical draw, W <input name="watts" type="number" min="0" placeholder="6"
+             value="{{with $m}}{{if .Watts}}{{.Watts}}{{end}}{{end}}"></label>
+    </div>
+    <div class="field-row">
+      <label>Is this part from the shelf?
+        <select name="item_id">
+          <option value="">no</option>
+          {{range $d.Items}}<option value="{{.ID}}" {{if $m}}{{if eq $m.ItemRef .ID}}selected{{end}}{{end}}>{{.Name}}</option>{{end}}
+        </select>
+      </label>
+      <label>Runs on, or plugs into
+        <select name="parent_id">
+          <option value="">nothing recorded</option>
+          {{range $d.Machines}}{{if or (not $m) (ne .ID $m.ID)}}
+          <option value="{{.ID}}" {{if $m}}{{if eq $m.ParentRef .ID}}selected{{end}}{{end}}>{{.Name}}</option>
+          {{end}}{{end}}
+        </select>
+      </label>
+    </div>
+    <label>Services <span class="muted">— one per line</span>
+      <textarea name="services" rows="3" placeholder="Home Assistant :8123
+Mosquitto :1883
+Zigbee2MQTT">{{with $m}}{{.Services}}{{end}}</textarea>
+    </label>
+    <label>Notes <input name="notes" autocomplete="off" value="{{with $m}}{{.Notes}}{{end}}"></label>
+    <div class="actions">
+      <button class="btn primary" type="submit">{{if $m}}Save{{else}}Add it{{end}}</button>
+      {{if $m}}<a class="btn ghost" href="/machines">Cancel</a>{{end}}
+    </div>
+  </form>
+  {{if $m}}
+  {{with $d.Children}}
+  <p class="muted small">Running on it: {{range $i, $c := .}}{{if $i}}, {{end}}{{$c.Name}}{{end}}. Removing it leaves them unattached.</p>
+  {{end}}
+  <form method="post" action="/machines/{{$m.ID}}/delete" data-confirm="Remove {{$m.Name}}?">
+    <button class="btn tiny danger" type="submit">Remove {{$m.Name}}</button>
+  </form>
+  {{end}}
+</details>
+
+{{template "bottom" .}}
+{{end}}

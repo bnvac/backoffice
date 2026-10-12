@@ -626,6 +626,87 @@ CREATE TABLE project_steps (
 CREATE INDEX idx_project_steps ON project_steps(project_id, position);
 `,
 	},
+	{
+		name: "printer connections and print jobs",
+		sql: `
+-- How to reach a printer on the network. link_key is written here for the
+-- same reason ai_providers.api_key is: it is configured from the browser. It
+-- is never rendered back, logged, or exported.
+ALTER TABLE printers ADD COLUMN link_kind TEXT NOT NULL DEFAULT '';
+ALTER TABLE printers ADD COLUMN link_url  TEXT NOT NULL DEFAULT '';
+ALTER TABLE printers ADD COLUMN link_key  TEXT NOT NULL DEFAULT '';
+
+-- Every G-code file sent, kept by hash so it can be sent again. A failed send
+-- is recorded too, with why, because "did that actually go?" is the question.
+CREATE TABLE print_jobs (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+	item_id    INTEGER REFERENCES items(id) ON DELETE SET NULL,
+	name       TEXT    NOT NULL,
+	blob       TEXT    NOT NULL,
+	sha256     TEXT    NOT NULL,
+	size       INTEGER NOT NULL DEFAULT 0,
+	started    INTEGER NOT NULL DEFAULT 0,
+	error      TEXT    NOT NULL DEFAULT '',
+	sent_at    TEXT    NOT NULL
+);
+CREATE INDEX idx_print_jobs_item ON print_jobs(item_id);
+`,
+	},
+	{
+		name: "firmware on boards",
+		sql: `
+-- One row per time a board was flashed. The shelf counts boards as a number;
+-- this tells the physical ones apart by what is on them. unit is free text
+-- because people identify boards by a sticker, a MAC, or where they are.
+CREATE TABLE flashes (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	item_id    INTEGER REFERENCES items(id) ON DELETE SET NULL,
+	unit       TEXT    NOT NULL DEFAULT '',
+	firmware   TEXT    NOT NULL,
+	version    TEXT    NOT NULL DEFAULT '',
+	file       TEXT    NOT NULL DEFAULT '',
+	blob       TEXT    NOT NULL DEFAULT '',
+	sha256     TEXT    NOT NULL DEFAULT '',
+	size       INTEGER NOT NULL DEFAULT 0,
+	project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+	notes      TEXT    NOT NULL DEFAULT '',
+	flashed_at TEXT    NOT NULL,
+	created_at TEXT    NOT NULL
+);
+CREATE INDEX idx_flashes_item ON flashes(item_id);
+CREATE INDEX idx_flashes_project ON flashes(project_id);
+`,
+	},
+	{
+		name: "machines",
+		sql: `
+-- The shelf, switched on. parent_id is what a machine runs on or plugs into:
+-- a VM on its host, a Pi on a PoE switch. image_sum is the published SHA-256
+-- of whatever it was installed from, so "which Debian is that?" has an answer.
+CREATE TABLE machines (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	name       TEXT    NOT NULL,
+	role       TEXT    NOT NULL DEFAULT '',
+	address    TEXT    NOT NULL DEFAULT '',
+	port       INTEGER NOT NULL DEFAULT 22,
+	mac        TEXT    NOT NULL DEFAULT '',
+	os         TEXT    NOT NULL DEFAULT '',
+	image      TEXT    NOT NULL DEFAULT '',
+	image_sum  TEXT    NOT NULL DEFAULT '',
+	hardware   TEXT    NOT NULL DEFAULT '',
+	location   TEXT    NOT NULL DEFAULT '',
+	watts      INTEGER NOT NULL DEFAULT 0,
+	services   TEXT    NOT NULL DEFAULT '',
+	notes      TEXT    NOT NULL DEFAULT '',
+	item_id    INTEGER REFERENCES items(id) ON DELETE SET NULL,
+	parent_id  INTEGER REFERENCES machines(id) ON DELETE SET NULL,
+	created_at TEXT    NOT NULL,
+	updated_at TEXT    NOT NULL
+);
+CREATE INDEX idx_machines_item ON machines(item_id);
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

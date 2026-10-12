@@ -1091,6 +1091,13 @@ img.maker-chip { object-fit: contain; background: #fff; padding: 1px; }
 
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .stack label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+/* A checkbox and its words read as one line. The column rule above is more
+   specific than .inline-check, so without this every tick box in a stacked form
+   sat centred on a line of its own, above the sentence it belongs to. */
+.stack label.inline-check, .spec-group label.inline-check {
+  flex-direction: row; align-items: center; gap: 8px; text-align: left;
+}
+.stack label.inline-check input { flex: none; width: auto; margin: 0; }
 .stack input:not([type=checkbox]):not([type=hidden]), .stack select, .stack textarea,
 .brainstorm-box input, .enclosure input[type=search] {
   width: 100%; padding: 8px 11px; font: inherit;
@@ -1311,6 +1318,70 @@ form.inline { display: inline; }
 .why-not, .why-careful { margin: 7px 0 0; padding-left: 17px; font-size: 13px; }
 .why-not li { color: var(--danger); }
 .why-not li span, .why-careful li { color: var(--muted); }
+
+/* --- printer state, sending, jobs ------------------------------------------- */
+
+/* A printer's state is the dot's colour and the words beside it, never colour
+   alone. Green is busy doing what you asked, amber wants a hand, red stopped. */
+.print-state { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  margin: 0 0 6px; font-size: 13.5px; }
+.dot { width: 8px; height: 8px; border-radius: 999px; flex: none; align-self: center;
+  background: var(--muted); opacity: .6; }
+.s-printing .dot { background: var(--ok); opacity: 1; }
+.s-paused .dot, .s-complete .dot { background: #d79a28; opacity: 1; }
+.s-error .dot, .s-cancelled .dot { background: var(--danger); opacity: 1; }
+.s-offline .dot { background: transparent; border: 1.5px solid var(--muted); }
+.print-bar { height: 6px; margin: 0 0 8px; }
+.s-printing .print-bar > span, .print-bar > span { background: var(--ok); }
+
+.send { margin-top: 9px; }
+.send > summary { list-style: none; cursor: pointer; display: inline-flex; }
+.send > summary::-webkit-details-marker { display: none; }
+.send[open] > summary { margin-bottom: 9px; }
+.send input[type=file] { font-size: 13px; color: var(--muted); }
+
+.sub-head { font-family: var(--ui); font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+.jobs li { gap: 9px; }
+.jobs .job-body { display: flex; flex-direction: column; min-width: 0; }
+.jobs .row-name { white-space: normal; overflow-wrap: anywhere; }
+.job-state { width: 18px; flex: none; text-align: center; color: var(--muted); font-size: 12px; }
+.jobs li.failed { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
+.jobs li.failed .job-state { color: var(--danger); }
+
+/* The dashboard strip: one line per connected printer, filled in by script. */
+.print-strip { list-style: none; padding: 0; margin: -8px 0 18px; display: flex;
+  flex-wrap: wrap; gap: 6px; }
+.print-strip li { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 7px 11px; min-width: min(100%, 280px); flex: 1 1 280px; }
+.print-strip a { display: flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; }
+.print-strip a b { font-weight: 560; }
+.print-strip .print-bar { display: block; margin: 7px 0 0; height: 4px; }
+.print-strip .print-bar[hidden] { display: none; }
+
+/* --- firmware and machines --------------------------------------------------- */
+
+.flashes td { vertical-align: top; }
+.flashes tr.replaced td, .rows li.replaced { opacity: .55; }
+code.sum { font-size: 12px; overflow-wrap: anywhere; word-break: break-all; }
+pre.cmd { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 10px 12px; overflow-x: auto; font-size: 12.5px; margin: 8px 0 10px; }
+input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+.machines { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+.machine { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 11px 13px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.machine-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.machine-head .printer-name { margin-right: auto; }
+.machine .spec code { font-size: 12px; }
+.image-line { margin: 0; overflow-wrap: anywhere; }
+
+/* Reachability is a ring when unchecked, solid when it answered, and hollow red
+   when it did not — distinguishable without colour by fill. */
+.reach { width: 10px; height: 10px; border-radius: 999px; flex: none;
+  border: 1.5px solid var(--muted); }
+.reach.up { background: var(--ok); border-color: var(--ok); }
+.reach.down { border-color: var(--danger); }
 
 /* --- the account menu ------------------------------------------------------ */
 

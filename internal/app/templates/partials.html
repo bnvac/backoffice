@@ -123,3 +123,30 @@
   </span>
 </div>
 {{end}}
+
+{{/* A project as a card, on the dashboard and the projects list alike. One
+     copy, because two copies is how the dashboard's lost its progress bar. */}}
+{{define "project-card"}}
+{{$p := .Project}}
+<li class="folder-card">
+  <a href="/projects/{{$p.ID}}">
+    <div class="folder-icon">{{if $p.Ready}}✅{{else}}🧰{{end}}</div>
+    <div class="folder-body">
+      <b>{{$p.Name}}</b>
+      <span class="muted">
+        {{len $p.Parts}} part{{if ne (len $p.Parts) 1}}s{{end}}
+        {{with $p.Shortfall}} · {{len .}} to get{{end}}
+      </span>
+      <span class="muted sub">{{$p.Status}} · {{since $p.UpdatedAt}}</span>
+      {{with .Progress}}{{if .Any}}
+      <span class="card-progress">
+        <span class="budget-bar steps-bar{{if .Complete}} done{{end}}">
+          <span style="width: {{.Percent}}%"></span>
+        </span>
+        <span class="muted sub">{{.Left}}</span>
+      </span>
+      {{end}}{{end}}
+    </div>
+  </a>
+</li>
+{{end}}

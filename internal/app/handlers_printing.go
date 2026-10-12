@@ -1,9 +1,16 @@
 package app
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 // The printing page. Two halves: the machines you own, recorded properly, and
@@ -12,12 +19,24 @@ import (
 // bed size alone.
 
 type printingData struct {
-	Printers []Printer
+	Printers []printerCard
 	Rows     []materialRow
 	Presets  []Preset
 	Nozzles  []struct{ Key, Label string }
+	Links    []struct{ Key, Label, Hint string }
 	Edit     *Printer
 	Caps     Capabilities
+	Jobs     []PrintJob
+	Items    []Item
+	Limit    string
+}
+
+// printerCard is a printer with what it said when asked just now.
+type printerCard struct {
+	Printer
+	Status    PrintStatus
+	StatusErr string
+	Asked     bool
 }
 
 // materialRow is one filament across every machine you own.
@@ -41,11 +60,25 @@ func (a *App) handlePrinting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// This page is about the printers, so it asks them before rendering — but a
+	// switched-off printer should cost a couple of seconds, not four.
+	ctx, cancel := context.WithTimeout(r.Context(), 2500*time.Millisecond)
+	defer cancel()
 	data := printingData{
-		Printers: printers,
+		Printers: askPrinters(ctx, printers),
 		Presets:  PrinterPresets,
 		Nozzles:  NozzleKinds,
+		Links:    LinkKinds,
 		Caps:     SummariseWorkshop(tools, printers),
+		Limit:    a.gcode.Limit(),
+	}
+	if data.Jobs, err = a.store.RecentPrintJobs(0, 12); err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	if data.Items, err = a.store.ListItems(Query{Sort: "name"}); err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
 	}
 
 	// Only worth working out once there is a machine to work it out against.
@@ -93,7 +126,14 @@ func printerFromForm(r *http.Request) Printer {
 	if _, ok := nozzleKindLabels[kind]; !ok {
 		kind = "brass"
 	}
+	link := r.FormValue("link_kind")
+	if link != "moonraker" && link != "octoprint" {
+		link = ""
+	}
 	return Printer{
+		LinkKind:    link,
+		LinkURL:     strings.TrimSpace(r.FormValue("link_url")),
+		LinkKey:     strings.TrimSpace(r.FormValue("link_key")),
 		Name:        strings.TrimSpace(r.FormValue("name")),
 		Bed:         Volume{X: num("bed_x"), Y: num("bed_y"), Z: num("bed_z")},
 		Nozzle:      num("nozzle"),
@@ -135,17 +175,29 @@ func (a *App) handleAddPrinter(w http.ResponseWriter, r *http.Request) {
 		if r.FormValue("edited") == "" {
 			p.Enclosed, p.DirectDrive = preset.Enclosed, preset.DirectDrive
 		}
+		if p.LinkKind == "" {
+			p.LinkKind = preset.LinkKind
+		}
 	}
 
 	if p.Name == "" {
 		redirect(w, r, "/printing", "", "give the printer a name")
 		return
 	}
-	if _, err := a.store.AddPrinter(p); err != nil {
+	id, err := a.store.AddPrinter(p)
+	if err != nil {
 		a.fail(w, err, http.StatusInternalServerError)
 		return
 	}
-	a.store.Record(a.actor(r), "added a printer", "printer", 0, p.Name)
+	a.store.Record(a.actor(r), "added a printer", "printer", id, p.Name)
+
+	// A preset that knows how to talk to the machine still needs its address,
+	// and there is no way to guess one, so go straight to the form for it.
+	if p.LinkKind != "" && p.LinkURL == "" {
+		redirect(w, r, fmt.Sprintf("/printing?edit=%d#edit", id),
+			"Added "+p.Name+" — give it the printer's address to connect it", "")
+		return
+	}
 	redirect(w, r, "/printing", "Added "+p.Name, "")
 }
 
@@ -160,6 +212,18 @@ func (a *App) handleUpdatePrinter(w http.ResponseWriter, r *http.Request) {
 	}
 	p := printerFromForm(r)
 	p.ID = id
+
+	// The key is never sent back to the browser, so a blank box means "keep
+	// what is saved", and clearing it is a deliberate tick.
+	if old, err := a.store.GetPrinter(id); err == nil && p.LinkKey == "" && r.FormValue("clear_key") == "" {
+		p.LinkKey = old.LinkKey
+	}
+	if p.LinkKind != "" && p.LinkURL != "" {
+		if _, err := normaliseLinkURL(p.LinkURL); err != nil {
+			redirect(w, r, fmt.Sprintf("/printing?edit=%d#edit", id), "", err.Error())
+			return
+		}
+	}
 	if err := a.store.UpdatePrinter(p); err != nil {
 		redirect(w, r, "/printing", "", err.Error())
 		return
@@ -204,4 +268,229 @@ func (a *App) handleMaterial(w http.ResponseWriter, r *http.Request) {
 		Checks   []Check
 		Printers int
 	}{m, checks, len(printers)})
+}
+
+// askPrinters gets every connected printer's status at once. Each has the
+// status client's short timeout, and they run side by side, so a printer that
+// is switched off costs the page a few seconds once rather than per printer.
+func askPrinters(ctx context.Context, printers []Printer) []printerCard {
+	cards := make([]printerCard, len(printers))
+	var wg sync.WaitGroup
+	for i, p := range printers {
+		cards[i].Printer = p
+		link, ok := linkFor(p)
+		if !ok {
+			continue
+		}
+		wg.Add(1)
+		go func(c *printerCard, link PrinterLink) {
+			defer wg.Done()
+			st, err := link.Status(ctx)
+			c.Status, c.Asked = st, true
+			if err != nil {
+				c.StatusErr = err.Error()
+			}
+		}(&cards[i], link)
+	}
+	wg.Wait()
+	return cards
+}
+
+// handlePrinterStatus is the same thing as JSON, for the dashboard's live tile
+// and the printing page's refresh. Asked for from script only, so the HTML
+// pages never wait on a printer that is switched off.
+func (a *App) handlePrinterStatus(w http.ResponseWriter, r *http.Request) {
+	printers, err := a.store.ListPrinters()
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	type out struct {
+		ID       int64  `json:"id"`
+		Name     string `json:"name"`
+		State    string `json:"state"`
+		Headline string `json:"headline"`
+		Percent  int    `json:"percent"`
+		File     string `json:"file"`
+		Error    string `json:"error,omitempty"`
+	}
+	list := []out{}
+	for _, c := range askPrinters(r.Context(), printers) {
+		if !c.Asked {
+			continue
+		}
+		list = append(list, out{
+			ID: c.ID, Name: c.Name, State: c.Status.State, Headline: c.Status.Headline(),
+			Percent: c.Status.Percent(), File: c.Status.File, Error: c.StatusErr,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(list)
+}
+
+// sendWindow is how long one send may take end to end. The server's write
+// timeout is two minutes, which a large file going over a printer's Wi-Fi can
+// outrun, so a send extends its own deadline rather than every request
+// getting a longer one.
+const sendWindow = 20 * time.Minute
+
+func extendDeadline(w http.ResponseWriter) {
+	rc := http.NewResponseController(w)
+	deadline := time.Now().Add(sendWindow)
+	// Not every ResponseWriter supports this (the test recorder does not), and
+	// a send that cannot extend its deadline should still be tried.
+	_ = rc.SetReadDeadline(deadline)
+	_ = rc.SetWriteDeadline(deadline)
+}
+
+// handleSendGcode takes a sliced file, keeps it, and sends it to the printer.
+// It is kept first, so a send that fails still leaves the file here to resend
+// once the printer is back.
+func (a *App) handleSendGcode(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	extendDeadline(w)
+	r.Body = http.MaxBytesReader(w, r.Body, maxGcode+(1<<20))
+	if err := parseForm(r); err != nil {
+		redirect(w, r, "/printing", "", "that file is bigger than "+a.gcode.Limit())
+		return
+	}
+
+	p, err := a.store.GetPrinter(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	file, header, err := r.FormFile("gcode")
+	if err != nil {
+		redirect(w, r, "/printing", "", "choose a G-code file to send")
+		return
+	}
+	defer file.Close()
+	if !IsGcode(header.Filename) {
+		redirect(w, r, "/printing", "", notGcodeHint(header.Filename))
+		return
+	}
+
+	name := GcodeName(header.Filename)
+	blob, sum, size, err := a.gcode.Save(file, path.Ext(name))
+	if errors.Is(err, errTooBig) {
+		redirect(w, r, "/printing", "", "that file is bigger than "+a.gcode.Limit())
+		return
+	}
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+
+	job := PrintJob{PrinterID: id, ItemID: optionalID(r.FormValue("item_id")),
+		Name: name, Blob: blob, SHA256: sum, Size: size}
+	a.sendJob(w, r, p, job, r.FormValue("start") != "")
+}
+
+// handleResendJob sends a kept file again, to the same printer or another.
+func (a *App) handleResendJob(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	extendDeadline(w)
+	if err := parseForm(r); err != nil {
+		a.fail(w, err, http.StatusBadRequest)
+		return
+	}
+	old, err := a.store.GetPrintJob(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	printerID := old.PrinterID
+	if to := optionalID(r.FormValue("printer_id")); to != nil {
+		printerID = *to
+	}
+	p, err := a.store.GetPrinter(printerID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	job := old
+	job.ID, job.PrinterID, job.Error, job.Started = 0, printerID, "", false
+	a.sendJob(w, r, p, job, r.FormValue("start") != "")
+}
+
+// sendJob does the actual upload and records how it went, either way.
+func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job PrintJob, start bool) {
+	link, ok := linkFor(p)
+	if !ok {
+		job.Error = "not connected — add the printer's address first"
+		a.store.AddPrintJob(job)
+		redirect(w, r, fmt.Sprintf("/printing?edit=%d#edit", p.ID), "",
+			p.Name+" is not connected yet, so the file is kept here but was not sent")
+		return
+	}
+
+	f, err := a.gcode.Open(job.Blob)
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	ctx, cancel := context.WithTimeout(r.Context(), sendWindow)
+	defer cancel()
+	started, err := link.Upload(ctx, job.Name, f, job.Size, start)
+	job.Started = started
+	if err != nil {
+		job.Error = err.Error()
+	}
+	if _, rerr := a.store.AddPrintJob(job); rerr != nil {
+		a.fail(w, rerr, http.StatusInternalServerError)
+		return
+	}
+	a.store.Record(a.actor(r), "sent a print", "printer", p.ID, job.Name)
+
+	switch {
+	case err != nil:
+		redirect(w, r, "/printing", "", "Could not send "+job.Name+": "+err.Error())
+	case started:
+		redirect(w, r, "/printing", "Sent "+job.Name+" to "+p.Name+" — printing", "")
+	case start:
+		// Asked to start, file arrived, printer did not say it started. Usually
+		// it is already busy; say so rather than claim a print is running.
+		redirect(w, r, "/printing", "Sent "+job.Name+" to "+p.Name+
+			", but it did not start — it may already be printing. Start it from the printer.", "")
+	default:
+		redirect(w, r, "/printing", "Sent "+job.Name+" to "+p.Name+" — start it when the bed is ready", "")
+	}
+}
+
+// handleJobFile downloads a kept G-code file, under the name it was sliced as.
+func (a *App) handleJobFile(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	job, err := a.store.GetPrintJob(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	a.serveBlob(w, r, a.gcode, job.Blob, job.Name, "text/x.gcode")
+}
+
+// serveBlob sends a stored file as a download. The name in the header is the
+// original one, quoted; the bytes come from the hash-named copy.
+func (a *App) serveBlob(w http.ResponseWriter, r *http.Request, b *Blobs, blob, name, ctype string) {
+	p, ok := b.Path(blob)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", ctype)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(name)))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeFile(w, r, p)
 }

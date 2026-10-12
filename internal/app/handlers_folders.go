@@ -23,6 +23,11 @@ type dashboardData struct {
 	Setup    bool // first boot: offer the wizard rather than an empty page
 	Profile  Profile
 	Ideas    []Idea
+	// Only the printers that can be asked. Their status is fetched by script
+	// after the page has rendered, so a printer that is switched off never
+	// holds up the dashboard.
+	Printers []Printer
+	Progress map[int64]Progress
 }
 
 // handleDashboard is the landing page: folders first, then what changed and
@@ -63,8 +68,20 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	profile, _ := a.store.GetProfile()
 	// Ideas that are worth doing something about, which is the ones you kept.
 	ideas, _ := a.store.ListIdeas("keeping")
+	var linked []Printer
+	if printers, err := a.store.ListPrinters(); err == nil {
+		for _, p := range printers {
+			if p.Connected() {
+				linked = append(linked, p)
+			}
+		}
+	}
+
+	progress, _ := a.store.ProjectProgress()
 
 	a.render(w, r, "dashboard.html", "", dashboardData{
+		Printers: linked,
+		Progress: progress,
 		Setup:    !profile.Onboarded(),
 		Profile:  profile,
 		Ideas:    firstN(ideas, 3),

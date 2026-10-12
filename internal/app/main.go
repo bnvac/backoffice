@@ -82,15 +82,20 @@ func env(key, def string) string {
 }
 
 type App struct {
-	cfg     Config
-	store   *Store
-	photos  *media.PhotoStore
-	tmpl    *template.Template
-	auth    *Auth
-	fetcher *Fetcher
-	search  *SearchHub
-	models  *ModelHub
-	started time.Time
+	cfg    Config
+	store  *Store
+	photos *media.PhotoStore
+	// Sliced G-code and firmware images, kept by hash so they can be sent or
+	// flashed again. Separate folders because their size limits differ by
+	// three orders of magnitude.
+	gcode    *Blobs
+	firmware *Blobs
+	tmpl     *template.Template
+	auth     *Auth
+	fetcher  *Fetcher
+	search   *SearchHub
+	models   *ModelHub
+	started  time.Time
 	// Whether saving a part may go and look for its maker's logo in the
 	// background. Off in tests, so a unit test never reaches the internet.
 	autoLogos bool
@@ -131,6 +136,14 @@ func Run() {
 	if err != nil {
 		log.Fatalf("photo store: %v", err)
 	}
+	gcode, err := NewBlobs(filepath.Join(cfg.DataDir, "gcode"), maxGcode)
+	if err != nil {
+		log.Fatalf("gcode store: %v", err)
+	}
+	firmware, err := NewBlobs(filepath.Join(cfg.DataDir, "firmware"), maxFirmware)
+	if err != nil {
+		log.Fatalf("firmware store: %v", err)
+	}
 	store := &Store{db: db}
 	auth, err := NewAuth(cfg.Password, filepath.Join(cfg.DataDir, "session.key"), store)
 	if err != nil {
@@ -142,6 +155,8 @@ func Run() {
 		cfg:       cfg,
 		store:     store,
 		photos:    photos,
+		gcode:     gcode,
+		firmware:  firmware,
 		tmpl:      mustTemplates(),
 		auth:      auth,
 		fetcher:   fetcher,
@@ -256,6 +271,24 @@ func (a *App) routes() http.Handler {
 	protected.HandleFunc("POST /printing/printers/{id}", a.handleUpdatePrinter)
 	protected.HandleFunc("POST /printing/printers/{id}/delete", a.handleDeletePrinter)
 	protected.HandleFunc("GET /printing/material/{key}", a.handleMaterial)
+	protected.HandleFunc("GET /printing/status", a.handlePrinterStatus)
+	protected.HandleFunc("POST /printing/printers/{id}/send", a.handleSendGcode)
+	protected.HandleFunc("POST /printing/jobs/{id}/resend", a.handleResendJob)
+	protected.HandleFunc("GET /printing/jobs/{id}/file", a.handleJobFile)
+
+	// What is on each board. Recording, not flashing: the board is plugged
+	// into the machine you are sitting at, not this one.
+	protected.HandleFunc("GET /firmware", a.handleFirmware)
+	protected.HandleFunc("POST /firmware", a.handleAddFlash)
+	protected.HandleFunc("GET /firmware/{id}", a.handleFlash)
+	protected.HandleFunc("GET /firmware/{id}/file", a.handleFlashFile)
+	protected.HandleFunc("POST /firmware/{id}/delete", a.handleDeleteFlash)
+
+	// The shelf, switched on.
+	protected.HandleFunc("GET /machines", a.handleMachines)
+	protected.HandleFunc("POST /machines", a.handleAddMachine)
+	protected.HandleFunc("POST /machines/{id}", a.handleUpdateMachine)
+	protected.HandleFunc("POST /machines/{id}/delete", a.handleDeleteMachine)
 
 	// Where a model gets plugged in, if one does.
 	protected.HandleFunc("GET /settings/ai", a.handleAISettings)

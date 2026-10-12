@@ -728,3 +728,38 @@ document.querySelectorAll('[data-scanner]').forEach((root) => {
     });
   });
 })();
+
+// --- printer status ------------------------------------------------------------
+// The dashboard draws the printers' names straight away and asks how they are
+// afterwards, so a printer that is switched off never makes the page wait.
+// Refreshes every 20 seconds while the tab is visible; stops when it is not.
+(() => {
+  const strip = document.querySelector('[data-printer-strip]');
+  if (!strip) return;
+
+  async function refresh() {
+    if (document.hidden) return;
+    let list;
+    try {
+      const res = await fetch('/printing/status', { headers: { Accept: 'application/json' } });
+      if (!res.ok) return;
+      list = await res.json();
+    } catch { return; }
+    for (const p of list) {
+      const li = strip.querySelector(`[data-printer="${p.id}"]`);
+      if (!li) continue;
+      li.className = 's-' + p.state;
+      li.querySelector('[data-headline]').textContent =
+        p.headline + (p.file && (p.state === 'printing' || p.state === 'paused') ? ' · ' + p.file : '');
+      li.title = p.error || '';
+      const bar = li.querySelector('.print-bar');
+      const printing = p.state === 'printing' || p.state === 'paused';
+      bar.hidden = !printing;
+      if (printing) bar.firstElementChild.style.width = p.percent + '%';
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 20000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+})();

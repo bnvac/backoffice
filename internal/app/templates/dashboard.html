@@ -64,6 +64,21 @@
   <div class="tile"><b>{{$d.Stats.ValueDisplay}}</b><span>shelf value</span></div>
 </div>
 
+{{with $d.Printers}}
+<ul class="print-strip" data-printer-strip>
+  {{range .}}
+  <li data-printer="{{.ID}}">
+    <a href="/printing">
+      <span class="dot" aria-hidden="true"></span>
+      <b>{{.Name}}</b>
+      <span class="muted small" data-headline>—</span>
+    </a>
+    <span class="budget-bar print-bar" hidden><span style="width:0"></span></span>
+  </li>
+  {{end}}
+</ul>
+{{end}}
+
 {{if $d.Recent}}
 <section class="panel-block">
   <div class="section-head"><h2>Recently updated</h2><a class="chip sm" href="/items">All items</a></div>
@@ -88,15 +103,7 @@
   {{if $d.Projects}}
   <ul class="folders">
     {{range $d.Projects}}
-    <li class="folder-card">
-      <a href="/projects/{{.ID}}">
-        <div class="folder-icon">{{if .Ready}}✅{{else}}🧰{{end}}</div>
-        <div class="folder-body">
-          <b>{{.Name}}</b>
-          <span class="muted">{{len .Parts}} parts{{with .Shortfall}} · {{len .}} to get{{end}}</span>
-        </div>
-      </a>
-    </li>
+    {{template "project-card" dict "Project" . "Progress" (index $d.Progress .ID)}}
     {{end}}
   </ul>
   {{else}}

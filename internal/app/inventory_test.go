@@ -35,19 +35,29 @@ func newTestApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatalf("NewPhotoStore: %v", err)
 	}
+	gcode, err := NewBlobs(filepath.Join(dir, "gcode"), maxGcode)
+	if err != nil {
+		t.Fatalf("NewBlobs: %v", err)
+	}
+	firmware, err := NewBlobs(filepath.Join(dir, "firmware"), maxFirmware)
+	if err != nil {
+		t.Fatalf("NewBlobs: %v", err)
+	}
 	store := &Store{db: db}
 	auth, err := NewAuth("", filepath.Join(dir, "session.key"), store)
 	if err != nil {
 		t.Fatalf("NewAuth: %v", err)
 	}
 	app := &App{
-		cfg:     Config{DataDir: dir, Title: "Backoffice"},
-		store:   store,
-		photos:  photos,
-		tmpl:    mustTemplates(),
-		auth:    auth,
-		started: time.Now(),
-		fetcher: NewFetcher(true), // tests serve fixtures from loopback
+		cfg:      Config{DataDir: dir, Title: "Backoffice"},
+		store:    store,
+		photos:   photos,
+		gcode:    gcode,
+		firmware: firmware,
+		tmpl:     mustTemplates(),
+		auth:     auth,
+		started:  time.Now(),
+		fetcher:  NewFetcher(true), // tests serve fixtures from loopback
 		// No shops by default: a unit test should not reach the internet.
 		search: &SearchHub{},
 	}

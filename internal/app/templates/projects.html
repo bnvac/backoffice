@@ -20,28 +20,7 @@
 {{if $d.Projects}}
 <ul class="folders">
   {{range $d.Projects}}
-  <li class="folder-card">
-    <a href="/projects/{{.ID}}">
-      <div class="folder-icon">{{if .Ready}}✅{{else}}🧰{{end}}</div>
-      <div class="folder-body">
-        <b>{{.Name}}</b>
-        <span class="muted">
-          {{len .Parts}} part{{if ne (len .Parts) 1}}s{{end}}
-          {{with .Shortfall}} · {{len .}} to get{{end}}
-        </span>
-        <span class="muted sub">{{.Status}} · {{since .UpdatedAt}}</span>
-        {{$prog := index $d.Progress .ID}}
-        {{if $prog.Any}}
-        <span class="card-progress">
-          <span class="budget-bar steps-bar{{if $prog.Complete}} done{{end}}">
-            <span style="width: {{$prog.Percent}}%"></span>
-          </span>
-          <span class="muted sub">{{$prog.Left}}</span>
-        </span>
-        {{end}}
-      </div>
-    </a>
-  </li>
+  {{template "project-card" dict "Project" . "Progress" (index $d.Progress .ID)}}
   {{end}}
 </ul>
 {{else}}

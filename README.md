@@ -73,6 +73,27 @@ reasons and what each one costs to fix. An unrecorded figure is treated as
 unknown rather than as zero, so a half-filled form does not produce a machine
 that cannot reach any temperature.
 
+If the printer is on the network it can also take the print. Moonraker covers
+anything running Klipper — the Neptune 4 family ships with it — and OctoPrint
+covers most of the rest. Send sliced G-code, optionally start it, and the file
+is kept against the part it was for, so next month's reprint is one button.
+The dashboard shows what each printer is doing without waiting on one that's
+switched off. It won't take an STL: a printer runs G-code, and slicing needs a
+slicer, which isn't something to hide inside a single binary.
+
+**Firmware.** The shelf counts six ESP32s; this records which one is in the
+greenhouse running what. Keep the image with its SHA-256 and the page gives
+you the command to put it back — `esptool` with the right `--chip`, `avrdude`
+for an Uno or a Pro Micro, or BOOTSEL-and-copy for a UF2. It doesn't flash
+anything itself: the board is plugged into your laptop, not the server, and a
+browser can't reach a serial port over plain HTTP.
+
+**Machines.** The homelab is a shelf that's switched on. Each box gets its
+address, OS, the image it was installed from and that image's published
+checksum, what it runs on, and what it draws. The page checks each one with a
+TCP connection to a port you choose (no ping, so no root) and adds up the power
+— leaving out machines with no figure rather than counting them as zero.
+
 ![Looking for a case](docs/cases.png)
 
 ## The workshop, and the idea board
@@ -200,7 +221,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 217 tests
+go test ./...          # 256 tests
 go test -race ./...
 go vet ./...
 ```

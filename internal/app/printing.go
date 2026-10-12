@@ -29,7 +29,33 @@ type Printer struct {
 	DirectDrive bool
 	Dryer       bool // a filament dryer, or a dehydrator pressed into service
 
+	// How to reach it, if it is on the network. LinkKey is stored so it
+	// survives a restart and is never rendered back into a page — the same
+	// rule as the AI provider keys.
+	LinkKind string // "" | moonraker | octoprint
+	LinkURL  string
+	LinkKey  string
+
 	CreatedAt time.Time
+}
+
+// Connected reports whether there is enough recorded to talk to it.
+func (p Printer) Connected() bool {
+	_, ok := linkFor(p)
+	return ok
+}
+
+// HasKey is for the form, which says a key is saved without showing it.
+func (p Printer) HasKey() bool { return p.LinkKey != "" }
+
+// LinkLabel names the protocol for the card.
+func (p Printer) LinkLabel() string {
+	for _, k := range LinkKinds {
+		if k.Key == p.LinkKind {
+			return k.Label
+		}
+	}
+	return ""
 }
 
 // HardNozzle reports whether the nozzle survives filled filament. Brass is gone
@@ -450,10 +476,18 @@ var PrinterPresets = []Preset{
 		Nozzle: 0.4, NozzleKind: "brass", MaxHotend: 300, MaxBed: 110, DirectDrive: true}},
 	{Maker: "Creality", Printer: Printer{Name: "Creality K1", Bed: Volume{220, 220, 250},
 		Nozzle: 0.4, NozzleKind: "hardened", MaxHotend: 300, MaxBed: 100, DirectDrive: true, Enclosed: true}},
+	// The Neptune 4 family ship running Klipper, with Moonraker and Fluidd
+	// already on the network, so the preset says so and only the address is
+	// left to fill in.
+	{Maker: "Elegoo", Printer: Printer{Name: "Elegoo Neptune 4", Bed: Volume{225, 225, 265},
+		Nozzle: 0.4, NozzleKind: "brass", MaxHotend: 300, MaxBed: 110, DirectDrive: true,
+		LinkKind: "moonraker"}},
 	{Maker: "Elegoo", Printer: Printer{Name: "Elegoo Neptune 4 Pro", Bed: Volume{225, 225, 265},
-		Nozzle: 0.4, NozzleKind: "brass", MaxHotend: 300, MaxBed: 110, DirectDrive: true}},
+		Nozzle: 0.4, NozzleKind: "brass", MaxHotend: 300, MaxBed: 110, DirectDrive: true,
+		LinkKind: "moonraker"}},
 	{Maker: "Voron", Printer: Printer{Name: "Voron 2.4 (350)", Bed: Volume{350, 350, 350},
-		Nozzle: 0.4, NozzleKind: "brass", MaxHotend: 300, MaxBed: 120, DirectDrive: true, Enclosed: true}},
+		Nozzle: 0.4, NozzleKind: "brass", MaxHotend: 300, MaxBed: 120, DirectDrive: true, Enclosed: true,
+		LinkKind: "moonraker"}},
 }
 
 // PresetByName finds one for the add form.
@@ -468,38 +502,17 @@ func PresetByName(name string) (Printer, bool) {
 
 // --- storage ---------------------------------------------------------------------
 
-func (s *Store) ListPrinters() ([]Printer, error) {
-	rows, err := s.db.Query(`SELECT id, name, bed_x, bed_y, bed_z, nozzle, nozzle_kind,
-		max_hotend, max_bed, enclosed, direct_drive, dryer, notes, created_at
-		FROM printers ORDER BY name COLLATE NOCASE`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+// printerColumns and scanPrinter are shared by every read, so a new column is
+// added in one place rather than in four queries that can drift apart.
+const printerColumns = `id, name, bed_x, bed_y, bed_z, nozzle, nozzle_kind, max_hotend,
+	max_bed, enclosed, direct_drive, dryer, notes, link_kind, link_url, link_key, created_at`
 
-	var out []Printer
-	for rows.Next() {
-		var p Printer
-		var created string
-		if err := rows.Scan(&p.ID, &p.Name, &p.Bed.X, &p.Bed.Y, &p.Bed.Z, &p.Nozzle,
-			&p.NozzleKind, &p.MaxHotend, &p.MaxBed, &p.Enclosed, &p.DirectDrive,
-			&p.Dryer, &p.Notes, &created); err != nil {
-			return nil, err
-		}
-		p.CreatedAt, _ = time.Parse(time.RFC3339, created)
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
-func (s *Store) GetPrinter(id int64) (Printer, error) {
+func scanPrinter(row rowScanner) (Printer, error) {
 	var p Printer
 	var created string
-	err := s.db.QueryRow(`SELECT id, name, bed_x, bed_y, bed_z, nozzle, nozzle_kind,
-		max_hotend, max_bed, enclosed, direct_drive, dryer, notes, created_at
-		FROM printers WHERE id = ?`, id).
-		Scan(&p.ID, &p.Name, &p.Bed.X, &p.Bed.Y, &p.Bed.Z, &p.Nozzle, &p.NozzleKind,
-			&p.MaxHotend, &p.MaxBed, &p.Enclosed, &p.DirectDrive, &p.Dryer, &p.Notes, &created)
+	err := row.Scan(&p.ID, &p.Name, &p.Bed.X, &p.Bed.Y, &p.Bed.Z, &p.Nozzle, &p.NozzleKind,
+		&p.MaxHotend, &p.MaxBed, &p.Enclosed, &p.DirectDrive, &p.Dryer, &p.Notes,
+		&p.LinkKind, &p.LinkURL, &p.LinkKey, &created)
 	if err != nil {
 		return Printer{}, err
 	}
@@ -507,16 +520,39 @@ func (s *Store) GetPrinter(id int64) (Printer, error) {
 	return p, nil
 }
 
+func (s *Store) ListPrinters() ([]Printer, error) {
+	rows, err := s.db.Query(`SELECT ` + printerColumns + ` FROM printers ORDER BY name COLLATE NOCASE`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Printer
+	for rows.Next() {
+		p, err := scanPrinter(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetPrinter(id int64) (Printer, error) {
+	return scanPrinter(s.db.QueryRow(`SELECT `+printerColumns+` FROM printers WHERE id = ?`, id))
+}
+
 func (s *Store) AddPrinter(p Printer) (int64, error) {
 	if strings.TrimSpace(p.Name) == "" {
 		return 0, fmt.Errorf("a printer needs a name")
 	}
 	res, err := s.db.Exec(`INSERT INTO printers (name, bed_x, bed_y, bed_z, nozzle,
-		nozzle_kind, max_hotend, max_bed, enclosed, direct_drive, dryer, notes, created_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		nozzle_kind, max_hotend, max_bed, enclosed, direct_drive, dryer, notes,
+		link_kind, link_url, link_key, created_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		strings.TrimSpace(p.Name), p.Bed.X, p.Bed.Y, p.Bed.Z, p.Nozzle, p.NozzleKind,
 		p.MaxHotend, p.MaxBed, p.Enclosed, p.DirectDrive, p.Dryer, strings.TrimSpace(p.Notes),
-		nowRFC3339())
+		p.LinkKind, strings.TrimSpace(p.LinkURL), p.LinkKey, nowRFC3339())
 	if err != nil {
 		return 0, err
 	}
@@ -529,10 +565,11 @@ func (s *Store) UpdatePrinter(p Printer) error {
 	}
 	_, err := s.db.Exec(`UPDATE printers SET name = ?, bed_x = ?, bed_y = ?, bed_z = ?,
 		nozzle = ?, nozzle_kind = ?, max_hotend = ?, max_bed = ?, enclosed = ?,
-		direct_drive = ?, dryer = ?, notes = ? WHERE id = ?`,
+		direct_drive = ?, dryer = ?, notes = ?, link_kind = ?, link_url = ?, link_key = ?
+		WHERE id = ?`,
 		strings.TrimSpace(p.Name), p.Bed.X, p.Bed.Y, p.Bed.Z, p.Nozzle, p.NozzleKind,
 		p.MaxHotend, p.MaxBed, p.Enclosed, p.DirectDrive, p.Dryer,
-		strings.TrimSpace(p.Notes), p.ID)
+		strings.TrimSpace(p.Notes), p.LinkKind, strings.TrimSpace(p.LinkURL), p.LinkKey, p.ID)
 	return err
 }
 
