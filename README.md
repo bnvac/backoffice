@@ -47,6 +47,10 @@ shop's real delivery time from how long past orders actually took.
 than what's on the shelf. Import a BOM from KiCad or EasyEDA and it matches
 lines against parts you already own.
 
+Each one has a checklist. Paste a plan — bullets, numbering and `[ ]` come off,
+`2.54mm` stays — and tick it off as you go; the bar shows on the project list so
+you can see what's half-finished without opening anything.
+
 **Wiring.** Record which pin goes where and it draws it. Colours follow bench
 convention — red power, black ground, dashed interrupts — so the picture and
 the wire in your hand agree. The pin budget counts whether the board you picked
@@ -196,7 +200,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 204 tests
+go test ./...          # 217 tests
 go test -race ./...
 go vet ./...
 ```

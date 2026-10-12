@@ -15,6 +15,9 @@ import (
 
 type projectsData struct {
 	Projects []Project
+	// Keyed by project id. A project with no steps is simply absent, and the
+	// zero Progress reads as "nothing to show" rather than as nought percent.
+	Progress map[int64]Progress
 }
 
 func (a *App) handleProjects(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +26,14 @@ func (a *App) handleProjects(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err, http.StatusInternalServerError)
 		return
 	}
-	a.render(w, r, "projects.html", "Projects", projectsData{Projects: projects})
+	progress, err := a.store.ProjectProgress()
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	a.render(w, r, "projects.html", "Projects", projectsData{
+		Projects: projects, Progress: progress,
+	})
 }
 
 type projectData struct {
@@ -37,6 +47,8 @@ type projectData struct {
 	Diagram     template.HTML
 	Legend      []WireLegendEntry
 	Log         []LogEntry
+	Steps       []Step
+	Progress    Progress
 	Statuses    []string
 	Assemblies  []Project // other projects that could go inside this one
 }
@@ -67,6 +79,11 @@ func (a *App) handleProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entries, err := a.store.LogEntries(id)
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	steps, err := a.store.ListSteps(id)
 	if err != nil {
 		a.fail(w, err, http.StatusInternalServerError)
 		return
@@ -104,6 +121,8 @@ func (a *App) handleProject(w http.ResponseWriter, r *http.Request) {
 		Diagram:    template.HTML(WiringDiagram(controllerName(p), wiring)),
 		Legend:     WireLegend(wiring),
 		Log:        entries,
+		Steps:      steps,
+		Progress:   StepProgress(steps),
 		Statuses:   ProjectStatuses,
 		Assemblies: assemblies,
 	})

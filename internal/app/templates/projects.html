@@ -30,6 +30,15 @@
           {{with .Shortfall}} · {{len .}} to get{{end}}
         </span>
         <span class="muted sub">{{.Status}} · {{since .UpdatedAt}}</span>
+        {{$prog := index $d.Progress .ID}}
+        {{if $prog.Any}}
+        <span class="card-progress">
+          <span class="budget-bar steps-bar{{if $prog.Complete}} done{{end}}">
+            <span style="width: {{$prog.Percent}}%"></span>
+          </span>
+          <span class="muted sub">{{$prog.Left}}</span>
+        </span>
+        {{end}}
       </div>
     </a>
   </li>

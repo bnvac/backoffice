@@ -608,6 +608,24 @@ CREATE TABLE printers (
 );
 `,
 	},
+	{
+		name: "project steps",
+		sql: `
+-- What is meant to happen, as opposed to the build log's record of what did.
+-- position is sparse and only ever compared, never assumed contiguous, so
+-- deleting out of the middle does not renumber the rest. done_at is a stamp
+-- rather than a flag because when a step was ticked is worth keeping.
+CREATE TABLE project_steps (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	position   INTEGER NOT NULL DEFAULT 0,
+	body       TEXT    NOT NULL,
+	done_at    TEXT    NOT NULL DEFAULT '',
+	created_at TEXT    NOT NULL
+);
+CREATE INDEX idx_project_steps ON project_steps(project_id, position);
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

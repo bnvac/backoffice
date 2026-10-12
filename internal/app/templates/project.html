@@ -45,6 +45,9 @@
   {{if and $pins.Controller $pins.Capacity}}
   <div class="tile"><b{{if $pins.Over}} class="warn"{{end}}>{{$pins.Total}} / {{$pins.Capacity}}</b><span>pins used</span></div>
   {{end}}
+  {{if $d.Progress.Any}}
+  <a class="tile" href="#steps"><b{{if $d.Progress.Complete}} class="ok"{{end}}>{{$d.Progress.Percent}}%</b><span>done</span></a>
+  {{end}}
 </div>
 
 {{/* Reserving, and then actually taking, the parts. */}}
@@ -68,6 +71,77 @@
     <p class="muted">Status is <b>{{$p.Status}}</b>, so nothing here is reserved.
       Set it to <b>building</b> in Settings and these parts stop counting as available elsewhere.</p>
   {{end}}
+</section>
+
+{{/* The plan. The build log below records what actually happened; this is the
+     list you tick at eleven at night when you cannot remember whether you
+     already flashed the board. */}}
+<section class="panel-block steps-block" id="steps">
+  <div class="section-head">
+    <h2>Steps</h2>
+    {{if $d.Progress.Any}}<span class="muted small">{{$d.Progress.Left}}</span>{{end}}
+    {{if $d.Progress.Done}}
+    <form method="post" action="/projects/{{$p.ID}}/steps/reset"
+          data-confirm="Untick every step on this project?">
+      <button class="btn tiny ghost" type="submit">Untick all</button>
+    </form>
+    {{end}}
+  </div>
+
+  {{if $d.Progress.Any}}
+  <div class="budget-bar steps-bar{{if $d.Progress.Complete}} done{{end}}">
+    <span style="width: {{$d.Progress.Percent}}%"></span>
+  </div>
+  {{end}}
+
+  {{if $d.Steps}}
+  <ol class="steps-list">
+    {{range $i, $s := $d.Steps}}
+    <li class="step{{if $s.Done}} done{{end}}">
+      <form method="post" action="/steps/{{$s.ID}}/toggle" class="step-tick">
+        <button type="submit" class="tickbox" aria-pressed="{{if $s.Done}}true{{else}}false{{end}}">
+          <span aria-hidden="true">{{if $s.Done}}✓{{else}}&nbsp;{{end}}</span>
+          <span class="sr-only">{{if $s.Done}}Untick{{else}}Tick{{end}}: {{$s.Body}}</span>
+        </button>
+      </form>
+
+      <span class="step-body">{{$s.Body}}</span>
+      {{if $s.Done}}<span class="step-when muted">{{since $s.DoneAt}}</span>{{end}}
+
+      <div class="step-tools">
+        <form method="post" action="/steps/{{$s.ID}}/move/up">
+          <button class="btn tiny ghost" type="submit" {{if eq $i 0}}disabled{{end}}
+                  aria-label="Move up">↑</button>
+        </form>
+        <form method="post" action="/steps/{{$s.ID}}/move/down">
+          <button class="btn tiny ghost" type="submit"
+                  {{if eq $i (add (len $d.Steps) -1)}}disabled{{end}} aria-label="Move down">↓</button>
+        </form>
+        <details class="inline-form">
+          <summary class="btn tiny ghost" aria-label="Edit this step">✎</summary>
+          <form method="post" action="/steps/{{$s.ID}}/edit">
+            <input name="body" value="{{$s.Body}}" aria-label="Step text">
+            <button class="btn tiny primary" type="submit">Save</button>
+          </form>
+        </details>
+        <form method="post" action="/steps/{{$s.ID}}/delete">
+          <button class="btn tiny danger" type="submit" aria-label="Delete this step">×</button>
+        </form>
+      </div>
+    </li>
+    {{end}}
+  </ol>
+  {{else}}
+  <p class="muted">No steps yet. Paste a plan below — one per line, bullets and numbering
+  come off — or add them one at a time.</p>
+  {{end}}
+
+  <form method="post" action="/projects/{{$p.ID}}/steps" class="step-add">
+    <textarea name="body" rows="2" aria-label="New step, or a whole plan one per line"
+      placeholder="solder the headers
+flash MicroPython — or paste a whole plan, one per line"></textarea>
+    <button class="btn primary" type="submit">Add</button>
+  </form>
 </section>
 
 {{if $p.Shortfall}}

@@ -314,6 +314,15 @@ func (a *App) routes() http.Handler {
 
 	// The lab notebook.
 	protected.HandleFunc("POST /projects/{id}/log", a.handleAddLogEntry)
+
+	// The checklist. Every one of these posts back to the project page, so
+	// ticking a box works with JavaScript off.
+	protected.HandleFunc("POST /projects/{id}/steps", a.handleAddSteps)
+	protected.HandleFunc("POST /projects/{id}/steps/reset", a.handleResetSteps)
+	protected.HandleFunc("POST /steps/{id}/toggle", a.handleToggleStep)
+	protected.HandleFunc("POST /steps/{id}/edit", a.handleUpdateStep)
+	protected.HandleFunc("POST /steps/{id}/move/{dir}", a.handleMoveStep)
+	protected.HandleFunc("POST /steps/{id}/delete", a.handleDeleteStep)
 	protected.HandleFunc("POST /log/{id}/delete", a.handleDeleteLogEntry)
 
 	// Sub-assemblies and the pin map.
