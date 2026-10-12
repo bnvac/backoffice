@@ -312,7 +312,7 @@ func (a *App) handlePrints(w http.ResponseWriter, r *http.Request) {
 		Searched:  query != "",
 	}
 	if tools, err := a.store.ListTools(); err == nil {
-		data.Caps = SummariseTools(tools)
+		data.Caps = a.caps(tools)
 	}
 	if query != "" {
 		report := a.models.Search(r.Context(), query, 24)

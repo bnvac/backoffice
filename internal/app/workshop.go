@@ -407,12 +407,17 @@ func (s *Store) CountItems() (int, error) {
 	return n, err
 }
 
-// Capabilities reads the tools and reduces them in one step, which is what
-// nearly every caller actually wants.
+// Capabilities reads the workshop and reduces it in one step, which is what
+// nearly every caller actually wants. Printers count: a bed recorded on the
+// printing page is the figure a suggestion should be measured against.
 func (s *Store) Capabilities() (Capabilities, error) {
 	tools, err := s.ListTools()
 	if err != nil {
 		return Capabilities{}, err
 	}
-	return SummariseTools(tools), nil
+	printers, err := s.ListPrinters()
+	if err != nil {
+		return Capabilities{}, err
+	}
+	return SummariseWorkshop(tools, printers), nil
 }

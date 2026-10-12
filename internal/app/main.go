@@ -249,6 +249,14 @@ func (a *App) routes() http.Handler {
 	protected.HandleFunc("POST /workshop/tools/{id}", a.handleUpdateTool)
 	protected.HandleFunc("POST /workshop/tools/{id}/delete", a.handleDeleteTool)
 
+	// The printers, and what they will take. Separate from the tool list
+	// because a printer is a specification, not a name on a shelf.
+	protected.HandleFunc("GET /printing", a.handlePrinting)
+	protected.HandleFunc("POST /printing/printers", a.handleAddPrinter)
+	protected.HandleFunc("POST /printing/printers/{id}", a.handleUpdatePrinter)
+	protected.HandleFunc("POST /printing/printers/{id}/delete", a.handleDeletePrinter)
+	protected.HandleFunc("GET /printing/material/{key}", a.handleMaterial)
+
 	// Where a model gets plugged in, if one does.
 	protected.HandleFunc("GET /settings/ai", a.handleAISettings)
 	protected.HandleFunc("POST /settings/ai", a.handleAddProvider)

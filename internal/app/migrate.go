@@ -582,6 +582,32 @@ CREATE TABLE idea_parts (
 CREATE INDEX idx_idea_parts ON idea_parts(idea_id);
 `,
 	},
+	{
+		name: "printers",
+		sql: `
+-- A printer is recorded as specifications rather than as a line of text,
+-- because whether a filament will run is a question about all of them at once:
+-- the hotend ceiling, the bed ceiling, the box around it, the nozzle, and
+-- whether the spool can be dried. Zero means "not said", which is treated as
+-- unknown rather than as a failure.
+CREATE TABLE printers (
+	id           INTEGER PRIMARY KEY AUTOINCREMENT,
+	name         TEXT    NOT NULL,
+	bed_x        REAL    NOT NULL DEFAULT 0,
+	bed_y        REAL    NOT NULL DEFAULT 0,
+	bed_z        REAL    NOT NULL DEFAULT 0,
+	nozzle       REAL    NOT NULL DEFAULT 0,
+	nozzle_kind  TEXT    NOT NULL DEFAULT 'brass',
+	max_hotend   INTEGER NOT NULL DEFAULT 0,
+	max_bed      INTEGER NOT NULL DEFAULT 0,
+	enclosed     INTEGER NOT NULL DEFAULT 0,
+	direct_drive INTEGER NOT NULL DEFAULT 0,
+	dryer        INTEGER NOT NULL DEFAULT 0,
+	notes        TEXT    NOT NULL DEFAULT '',
+	created_at   TEXT    NOT NULL
+);
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

@@ -54,7 +54,7 @@ func (a *App) handleBrainstorm(w http.ResponseWriter, r *http.Request) {
 	provider, hasAI := a.store.ActiveProvider()
 
 	a.render(w, r, "brainstorm.html", "Ideas", brainstormData{
-		Ideas: ideas, Caps: SummariseTools(tools), Shelf: ReadShelf(items),
+		Ideas: ideas, Caps: a.caps(tools), Shelf: ReadShelf(items),
 		Provider: provider, HasAI: hasAI, Items: len(items), Tools: len(tools),
 		Ask: r.URL.Query().Get("ask"), Filter: filter, Profile: profile,
 	})
@@ -81,7 +81,7 @@ func (a *App) handleGenerateIdeas(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err, http.StatusInternalServerError)
 		return
 	}
-	caps := SummariseTools(tools)
+	caps := a.caps(tools)
 	ask := strings.TrimSpace(r.FormValue("ask"))
 	useModel := r.FormValue("source") == "model"
 
@@ -157,7 +157,7 @@ func (a *App) handleIdea(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err, http.StatusInternalServerError)
 		return
 	}
-	caps := SummariseTools(tools)
+	caps := a.caps(tools)
 
 	// The parts that are really on the shelf, so the enclosure plan can look at
 	// their recorded sizes rather than at their names.
@@ -190,7 +190,7 @@ func (a *App) handleIdeaCases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tools, _ := a.store.ListTools()
-	caps := SummariseTools(tools)
+	caps := a.caps(tools)
 
 	var parts []Item
 	for _, p := range idea.Parts {

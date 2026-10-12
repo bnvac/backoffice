@@ -125,7 +125,7 @@ func (a *App) handleWorkshop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.render(w, r, "workshop.html", "Workshop", workshopData{
-		Profile: profile, Groups: GroupTools(tools), Caps: SummariseTools(tools),
+		Profile: profile, Groups: GroupTools(tools), Caps: a.caps(tools),
 		Kinds: ToolKinds(), Count: len(tools),
 	})
 }
@@ -304,7 +304,7 @@ func (a *App) handleProfile(w http.ResponseWriter, r *http.Request) {
 	provider, hasAI := a.store.ActiveProvider()
 
 	a.render(w, r, "profile.html", "Profile", profileData{
-		Profile: profile, Caps: SummariseTools(tools), Tools: len(tools),
+		Profile: profile, Caps: a.caps(tools), Tools: len(tools),
 		Items: items, Projects: len(projects), Provider: provider, HasAI: hasAI,
 		Since: profile.CreatedAt,
 	})

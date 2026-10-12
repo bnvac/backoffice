@@ -1189,6 +1189,77 @@ img.maker-chip { object-fit: contain; background: #fff; padding: 1px; }
 .plain { list-style: none; padding: 0; margin: 0; }
 form.inline { display: inline; }
 
+/* --- printers and filament -------------------------------------------------- */
+
+.printers { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.printer { background: var(--panel); border: 1px solid transparent; border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 11px 13px; }
+.printer.editing { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.printer-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.printer-name { font-family: var(--display); font-weight: 600; font-size: 16px; margin-right: auto; }
+.printer-head .actions { gap: 5px; }
+
+/* Specifications read as label-over-value pairs: the numbers are the content,
+   and the labels only have to be findable. */
+.spec { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
+.spec .fact { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.spec .fact i { font-style: normal; font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); }
+
+.spec-group { border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 10px 12px 12px; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.spec-group legend { font-size: 12px; color: var(--muted); padding: 0 5px; }
+.spec-group legend em { font-style: normal; opacity: .75; }
+.presets { margin-bottom: 4px; }
+
+/* A filament either loads or it does not, so the verdict is carried by a stripe
+   down the edge as well as by the words — it is the thing being scanned for. */
+.mats { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.mat { background: var(--panel); border: 1px solid transparent; border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 10px 13px 11px; border-left: 3px solid var(--line); }
+.mat.v-yes { border-left-color: var(--ok); }
+.mat.v-maybe { border-left-color: #d79a28; }
+.mat.v-no { border-left-color: var(--danger); }
+
+.mat-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; color: var(--text); }
+.mat-name { font-family: var(--display); font-weight: 600; font-size: 16px; }
+.mat-also { font-size: 12px; color: var(--muted); }
+.mat-verdict { margin-left: auto; font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em; }
+.v-yes .mat-verdict { color: var(--ok); }
+.v-maybe .mat-verdict { color: #d79a28; }
+.v-no .mat-verdict { color: var(--danger); }
+
+.mat-note { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); max-width: 78ch; opacity: .85; }
+.mat-why { margin: 5px 0 0; font-size: 13px; color: var(--muted); max-width: 78ch; }
+.mat-why b { color: var(--text); font-weight: 560; }
+.mat-why .caution { display: block; }
+
+/* What to buy. The price sits next to the thing, because "is this a tenner or a
+   new printer" is the first question anybody asks. */
+.upgrades { list-style: none; padding: 0; margin: 7px 0 0; display: flex;
+  flex-direction: column; gap: 5px; font-size: 13px; }
+.upgrades li { padding-left: 15px; position: relative; }
+.upgrades li::before { content: "+"; position: absolute; left: 0; color: var(--muted); font-weight: 700; }
+.upgrades b { font-weight: 560; }
+.upgrades .rough { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 5px; }
+.upgrades .why { display: block; color: var(--muted); font-size: 12.5px; }
+
+.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.check { background: var(--panel); border: 1px solid transparent; border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 11px 13px; border-left: 3px solid var(--line); }
+.check.v-yes { border-left-color: var(--ok); }
+.check.v-maybe { border-left-color: #d79a28; }
+.check.v-no { border-left-color: var(--danger); }
+.check-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.check-head b { font-family: var(--display); font-weight: 600; font-size: 16px; }
+
+.why-not, .why-careful { margin: 7px 0 0; padding-left: 17px; font-size: 13px; }
+.why-not li { color: var(--danger); }
+.why-not li span, .why-careful li { color: var(--muted); }
+
 /* --- the account menu ------------------------------------------------------ */
 
 .avatar {

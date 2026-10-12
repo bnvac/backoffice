@@ -61,6 +61,14 @@ phone opens that part's page with the count buttons under your thumb.
 part. Give it the STL and it parses the mesh, measures the real bounding box
 and renders a preview, so you know whether it fits before a six-hour print.
 
+**Printing.** Record each printer properly — bed, nozzle and what it is made
+of, hotend and bed ceilings, enclosed or open, direct or bowden, whether you
+can dry filament — and it works out which filaments it will actually take.
+Nylon CF on a stock Ender 3 comes back *not as it stands*, with the five
+reasons and what each one costs to fix. An unrecorded figure is treated as
+unknown rather than as zero, so a half-filled form does not produce a machine
+that cannot reach any temperature.
+
 ![Looking for a case](docs/cases.png)
 
 ## The workshop, and the idea board
@@ -188,7 +196,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 186 tests
+go test ./...          # 204 tests
 go test -race ./...
 go vet ./...
 ```

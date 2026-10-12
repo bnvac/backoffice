@@ -1,0 +1,184 @@
+{{define "printing.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Printing</span></nav>
+
+<div class="folder-head">
+  <h1>Printing</h1>
+  <div class="folder-actions">
+    <a class="chip sm" href="/workshop">Workshop</a>
+    <a class="chip sm" href="/prints">Find a model ↗</a>
+  </div>
+</div>
+
+<p class="lede">What the machines will actually take. Whether a filament runs is a question
+about the hotend, the bed, the box around it, the nozzle and the spool all at once — so the
+printer gets recorded properly and the answer gets worked out.</p>
+
+{{/* --- the machines ------------------------------------------------------- */}}
+
+<h2>Your printers</h2>
+
+{{if $d.Printers}}
+<ul class="printers">
+  {{range $d.Printers}}
+  <li class="printer{{if and $d.Edit (eq $d.Edit.ID .ID)}} editing{{end}}">
+    <div class="printer-head">
+      <b class="printer-name">{{.Name}}</b>
+      <div class="actions">
+        <a class="btn tiny" href="/printing?edit={{.ID}}#edit">Edit</a>
+        <form method="post" action="/printing/printers/{{.ID}}/delete">
+          <button class="btn tiny danger" type="submit">Remove</button>
+        </form>
+      </div>
+    </div>
+    <div class="spec">
+      {{if .Bed.Known}}<span class="fact"><i>Bed</i>{{.Bed}}</span>{{end}}
+      {{if .NozzleLabel}}<span class="fact"><i>Nozzle</i>{{.NozzleLabel}}</span>{{end}}
+      {{if .MaxHotend}}<span class="fact"><i>Hotend</i>{{.MaxHotend}} °C</span>{{end}}
+      {{if .MaxBed}}<span class="fact"><i>Bed max</i>{{.MaxBed}} °C</span>{{end}}
+      <span class="fact"><i>Feed</i>{{.Feed}}</span>
+      <span class="fact"><i>Chamber</i>{{if .Enclosed}}enclosed{{else}}open{{end}}</span>
+      <span class="fact"><i>Drying</i>{{if .Dryer}}yes{{else}}no{{end}}</span>
+    </div>
+    {{if .Notes}}<p class="muted small">{{.Notes}}</p>{{end}}
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="empty small">No printers yet. Add one below and the filament list fills itself in.</p>
+{{end}}
+
+{{/* --- add / edit --------------------------------------------------------- */}}
+
+<details class="panel" id="edit" {{if or $d.Edit (not $d.Printers)}}open{{end}}>
+  <summary class="btn">{{if $d.Edit}}Editing {{$d.Edit.Name}}{{else}}Add a printer{{end}}</summary>
+
+  {{if not $d.Edit}}
+  <div class="filter-row presets">
+    <span class="filter-label">Preset</span>
+    {{range $d.Presets}}
+    <form method="post" action="/printing/printers" class="inline">
+      <input type="hidden" name="preset" value="{{.Name}}">
+      <button class="chip sm preset" type="submit">{{.Name}}</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="muted small">Starting points from the published specifications. Nozzles get
+  swapped and hotends get upgraded, so check the result against the machine in front of
+  you — the numbers are what the answers are built on.</p>
+  {{end}}
+
+  <form method="post" class="stack"
+        action="{{if $d.Edit}}/printing/printers/{{$d.Edit.ID}}{{else}}/printing/printers{{end}}">
+    <input type="hidden" name="edited" value="1">
+
+    <label>Name
+      <input name="name" required autocomplete="off" placeholder="Prusa MK4S"
+             value="{{with $d.Edit}}{{.Name}}{{end}}">
+    </label>
+
+    <fieldset class="spec-group">
+      <legend>Bed, in millimetres</legend>
+      <div class="field-row">
+        <label>Width <input name="bed_x" type="number" step="any" min="0" placeholder="250"
+               value="{{with $d.Edit}}{{if .Bed.X}}{{.Bed.X}}{{end}}{{end}}"></label>
+        <label>Depth <input name="bed_y" type="number" step="any" min="0" placeholder="210"
+               value="{{with $d.Edit}}{{if .Bed.Y}}{{.Bed.Y}}{{end}}{{end}}"></label>
+        <label>Height <input name="bed_z" type="number" step="any" min="0" placeholder="220"
+               value="{{with $d.Edit}}{{if .Bed.Z}}{{.Bed.Z}}{{end}}{{end}}"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="spec-group">
+      <legend>Hot end <em>— leave a box empty if you do not know; empty means unknown, not zero</em></legend>
+      <div class="field-row">
+        <label>Nozzle, mm
+          <input name="nozzle" type="number" step="any" min="0" placeholder="0.4"
+                 value="{{with $d.Edit}}{{if .Nozzle}}{{.Nozzle}}{{end}}{{end}}">
+        </label>
+        <label>Nozzle material
+          <select name="nozzle_kind">
+            {{range $d.Nozzles}}
+            <option value="{{.Key}}"
+              {{if $d.Edit}}{{if eq $d.Edit.NozzleKind .Key}}selected{{end}}{{end}}>{{.Label}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label>Max nozzle °C
+          <input name="max_hotend" type="number" min="0" placeholder="290"
+                 value="{{with $d.Edit}}{{if .MaxHotend}}{{.MaxHotend}}{{end}}{{end}}">
+        </label>
+        <label>Max bed °C
+          <input name="max_bed" type="number" min="0" placeholder="120"
+                 value="{{with $d.Edit}}{{if .MaxBed}}{{.MaxBed}}{{end}}{{end}}">
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="spec-group">
+      <legend>The rest of it</legend>
+      <label class="inline-check">
+        <input type="checkbox" name="enclosed" {{with $d.Edit}}{{if .Enclosed}}checked{{end}}{{end}}>
+        Enclosed — a chamber, a cover, or a box over the top
+      </label>
+      <label class="inline-check">
+        <input type="checkbox" name="direct_drive" {{with $d.Edit}}{{if .DirectDrive}}checked{{end}}{{end}}>
+        Direct drive rather than bowden
+      </label>
+      <label class="inline-check">
+        <input type="checkbox" name="dryer" {{with $d.Edit}}{{if .Dryer}}checked{{end}}{{end}}>
+        I can dry filament — a dryer, or a dehydrator with the trays out
+      </label>
+    </fieldset>
+
+    <label>Notes
+      <input name="notes" autocomplete="off" placeholder="bed is warped at the back left"
+             value="{{with $d.Edit}}{{.Notes}}{{end}}">
+    </label>
+
+    <div class="actions">
+      <button class="btn primary" type="submit">{{if $d.Edit}}Save{{else}}Add it{{end}}</button>
+      {{if $d.Edit}}<a class="btn ghost" href="/printing">Cancel</a>{{end}}
+    </div>
+  </form>
+</details>
+
+{{/* --- what it can take ---------------------------------------------------- */}}
+
+{{if $d.Rows}}
+<h2>What you can load</h2>
+<p class="muted page-sub">Across every machine you own. Press one for the long answer.</p>
+
+<ul class="mats">
+  {{range $d.Rows}}
+  {{$c := .Best}}
+  <li class="mat v-{{$c.Verdict}}">
+    <a class="mat-head" href="/printing/material/{{.Material.Key}}">
+      <span class="mat-name">{{.Material.Name}}</span>
+      {{if .Material.Also}}<span class="mat-also">{{.Material.Also}}</span>{{end}}
+      <span class="mat-verdict">{{$c.Headline}}</span>
+    </a>
+
+    <p class="mat-note">{{.Material.Note}}</p>
+
+    {{if .Runs}}
+      <p class="mat-why">On your <b>{{$c.Printer}}</b>.
+      {{range $c.Cautions}}<span class="caution">{{.}}</span>{{end}}</p>
+    {{else}}
+      <p class="mat-why">Closest is your <b>{{$c.Printer}}</b>, but
+      {{range $i, $b := $c.Blockers}}{{if $i}}, and {{end}}it {{$b}}{{end}}.</p>
+      {{with $c.Upgrades}}
+      <ul class="upgrades">
+        {{range .}}<li><b>{{.What}}</b> <span class="rough">{{.Rough}}</span><span class="why">{{.Why}}</span></li>{{end}}
+      </ul>
+      {{end}}
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

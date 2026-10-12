@@ -1,0 +1,64 @@
+{{define "material.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/printing">Printing</a><span class="sep">/</span><span class="here">{{$d.Material.Name}}</span></nav>
+
+<div class="folder-head"><h1>{{$d.Material.Label}}</h1></div>
+
+<p class="lede">{{$d.Material.Note}}</p>
+
+<dl class="facts wide">
+  <dt>Nozzle</dt><dd>{{$d.Material.Hotend}} °C or hotter</dd>
+  <dt>Bed</dt><dd>{{$d.Material.Bed}} °C or hotter</dd>
+  <dt>Smallest nozzle</dt><dd>{{$d.Material.MinNozzle}} mm{{if $d.Material.EasierNozzle}} — {{$d.Material.EasierNozzle}} mm is much easier{{end}}</dd>
+  <dt>Enclosure</dt><dd>{{$d.Material.EnclosureNeed}}</dd>
+  <dt>Drying</dt><dd>{{$d.Material.DryNeed}}</dd>
+  <dt>Nozzle wear</dt><dd>{{$d.Material.NozzleWear}}</dd>
+</dl>
+
+<h2>On your machines</h2>
+
+{{if not $d.Printers}}
+<p class="empty small">No printers recorded yet. <a href="/printing">Add one</a> and this
+page tells you whether it will run.</p>
+{{end}}
+
+<ul class="checks">
+  {{range $d.Checks}}
+  <li class="check v-{{.Verdict}}">
+    <div class="check-head">
+      <b>{{.Printer}}</b>
+      <span class="mat-verdict">{{.Headline}}</span>
+    </div>
+
+    {{with .Blockers}}
+    <ul class="why-not">
+      {{range .}}<li>{{.}}</li>{{end}}
+    </ul>
+    {{end}}
+
+    {{with .Cautions}}
+    <ul class="why-careful">
+      {{range .}}<li>{{.}}</li>{{end}}
+    </ul>
+    {{end}}
+
+    {{with .Upgrades}}
+    <div class="measure">
+      <h3>What would fix it</h3>
+      <ul class="upgrades">
+        {{range .}}<li><b>{{.What}}</b> <span class="rough">{{.Rough}}</span><span class="why">{{.Why}}</span></li>{{end}}
+      </ul>
+    </div>
+    {{end}}
+
+    {{if and (not .Blockers) (not .Cautions)}}
+    <p class="muted small">Nothing in the way. Load it.</p>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+
+{{template "bottom" .}}
+{{end}}
