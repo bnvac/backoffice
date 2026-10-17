@@ -1575,18 +1575,19 @@ a.printer-name:hover { text-decoration: underline; }
 
 /* --- illustrations ------------------------------------------------------------- */
 
-.art {
-  display: block; width: 100%; height: auto; overflow: visible;
-  fill: none; stroke: currentColor; stroke-width: var(--art-w, 2);
-  stroke-linecap: round; stroke-linejoin: round;
-}
-/* Strokes stay the same thickness at any size, so one drawing works as a
-   32px glyph and as a 300px hero. */
-.art * { vector-effect: non-scaling-stroke; }
-.art .s { fill: var(--art-soft); }
-.art .a { fill: var(--art-pop); }
-.art .ac { stroke: var(--art-pop); }
-.art .f { fill: currentColor; stroke: none; }
+/* Full-colour clipart (Fluent Emoji, flat style). They carry their own colours,
+   so they read the same on the dark and light themes. */
+.art { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+
+/* The cover: five pictures as a little bench scene, the toolbox in the
+   middle, each landing in turn. */
+.art-bench { display: flex; align-items: flex-end; justify-content: center; gap: 4%; }
+.art-bench .art { width: 15%; }
+.art-bench .art:nth-child(2), .art-bench .art:nth-child(4) { width: 19%; margin-bottom: 6%; }
+.art-bench .art:nth-child(3) { width: 28%; }
+.menu-art .art-bench, .ob-tour-art .art-bench { display: block; }
+.menu-art .art-bench .art:not(:nth-child(3)) { display: none; }
+.menu-art .art-bench .art:nth-child(3) { width: 100%; margin: 0; }
 
 /* --- the setup wizard ------------------------------------------------------------ */
 
@@ -1619,9 +1620,9 @@ a.printer-name:hover { text-decoration: underline; }
 }
 
 .ob-side { position: sticky; top: 90px; }
-.ob-art { color: var(--text); --art-w: 2.2; max-width: 260px; margin: 0 auto; }
+.ob-art { max-width: 200px; margin: 0 auto; }
 .ob-art-wide { max-width: 420px; margin-bottom: 8px; }
-.ob-art-done { max-width: 150px; }
+.ob-art-done { max-width: 120px; }
 
 /* Each part of a step arrives in turn: --i is its place in the order. */
 .ob-title, .ob-lede, .ob-kicker, .ob-form, .ob-actions, .ob-tour > li, .ob-next > li,
@@ -1631,12 +1632,12 @@ a.printer-name:hover { text-decoration: underline; }
 }
 @keyframes ob-rise { from { opacity: 0; transform: translateY(10px); } }
 
-/* The drawing wipes in as if being drawn, then the copper parts settle. */
-.ob-art .art { animation: ob-draw .9s cubic-bezier(.3, .7, .2, 1) both .05s; }
-.ob-art .art .a, .ob-art .art .ac { animation: ob-pop .5s cubic-bezier(.3, 1.5, .5, 1) both .55s;
-  transform-box: fill-box; transform-origin: center; }
-@keyframes ob-draw { from { clip-path: inset(0 100% 0 0); opacity: .3; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
-@keyframes ob-pop { from { opacity: 0; transform: scale(.6); } }
+/* The picture bounces in, then bobs gently while the step is open. */
+.ob-art .art { animation: ob-pop .6s cubic-bezier(.3, 1.6, .5, 1) both calc(var(--n, 0) * 90ms + 60ms),
+  ob-bob 4s ease-in-out infinite calc(var(--n, 0) * 300ms + 900ms); transform-origin: 50% 90%; }
+.ob-art { filter: drop-shadow(0 10px 14px rgb(0 0 0 / .28)); }
+@keyframes ob-pop { from { opacity: 0; transform: translateY(18px) scale(.6); } }
+@keyframes ob-bob { 50% { transform: translateY(-5px) rotate(-1.5deg); } }
 
 .ob-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 0 0 6px; }
 .ob-title { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.12; margin: 0 0 10px; text-wrap: balance; }
@@ -1665,7 +1666,7 @@ a.printer-name:hover { text-decoration: underline; }
 }
 .ob-next a { transition: transform .14s, box-shadow .14s; }
 .ob-next a:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.ob-tour-art { grid-row: span 2; color: var(--text); --art-w: 1.7; width: 52px; }
+.ob-tour-art { grid-row: span 2; width: 44px; }
 .ob-tour b, .ob-next b { font-weight: 600; font-size: 14.5px; }
 .ob-tour span:not(.ob-tour-art), .ob-next span:not(.ob-tour-art) { color: var(--muted); font-size: 13px; line-height: 1.45; }
 
@@ -1710,19 +1711,19 @@ a.printer-name:hover { text-decoration: underline; }
 .ob-have { font-size: 13.5px; color: var(--muted); }
 .ob-note { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: var(--radius);
   background: color-mix(in srgb, var(--art-pop) 10%, var(--panel-2)); margin: 0 0 16px; font-size: 14px; }
-.ob-note-art { width: 44px; flex: none; color: var(--text); --art-w: 1.6; }
+.ob-note-art { width: 40px; flex: none; }
 .table-scroll { overflow-x: auto; }
 
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
-  .ob-art .art, .ob-art .art .a, .ob-art .art .ac { animation: none; }
+  .ob-art .art { animation: none; }
 }
 
 /* --- section drawings in the chrome ---------------------------------------------- */
 
-.head-art { width: 44px; flex: none; color: var(--text); --art-w: 1.6;
-  padding: 6px; border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
-.folder-icon .art { width: 30px; color: var(--text); --art-w: 1.5; }
+.head-art { width: 48px; flex: none;
+  padding: 7px; border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+.folder-icon .art { width: 30px; }
 
 .menu-panel.menu-grid { display: grid; grid-template-columns: repeat(2, minmax(190px, 1fr));
   gap: 4px 10px; min-width: 420px; padding: 8px; }
@@ -1730,7 +1731,9 @@ a.printer-name:hover { text-decoration: underline; }
 .menu-group { display: flex; flex-direction: column; }
 .menu-group .menu-label { padding: 6px 10px 3px; }
 .menu-panel a { display: flex !important; align-items: center; gap: 9px; }
-.menu-art { width: 22px; flex: none; color: var(--text); --art-w: 1.4; opacity: .9; }
+.menu-art { width: 24px; flex: none; }
+.menu-panel a:hover .menu-art .art { transform: scale(1.15) rotate(-6deg); }
+.menu-art .art { transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); }
 
 /* Opening a menu or a disclosure eases in rather than snapping. */
 .menu[open] > .menu-panel, .inline-form[open] > form, .inline-form[open] > .pop {
@@ -1745,7 +1748,7 @@ main { animation: page-in .28s ease-out both; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
 
 /* Empty states get their section's drawing above the words. */
-.empty-art { display: block; width: 120px; margin: 0 auto 10px; color: var(--muted); --art-w: 1.8; opacity: .9; }
+.empty-art { display: block; width: 84px; margin: 0 auto 12px; filter: drop-shadow(0 8px 12px rgb(0 0 0 / .22)); }
 
 /* --- the assistant ---------------------------------------------------------------- */
 

@@ -130,7 +130,7 @@
 {{$p := .Project}}
 <li class="folder-card">
   <a href="/projects/{{$p.ID}}">
-    <div class="folder-icon">{{if $p.Ready}}{{art "done"}}{{else}}{{art "project"}}{{end}}</div>
+    <div class="folder-icon">{{if $p.Ready}}{{art "ready"}}{{else}}{{art "project"}}{{end}}</div>
     <div class="folder-body">
       <b>{{$p.Name}}</b>
       <span class="muted">
