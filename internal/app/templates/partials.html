@@ -197,3 +197,37 @@
   </label>
 </fieldset>
 {{end}}
+
+{{/* One print in the history: what it was, how it ended, what it used. */}}
+{{define "job-row"}}
+<li class="job{{if not .OK}} failed{{end}}{{if .Returned}} replaced{{end}}">
+  {{if .Thumb}}<img class="job-thumb" src="/printing/jobs/{{.ID}}/thumb.png" alt="" loading="lazy" width="48" height="48">
+  {{else}}<span class="job-thumb job-thumb-none" aria-hidden="true">{{if not .OK}}✕{{else if .Started}}▶{{else}}↑{{end}}</span>{{end}}
+  <span class="job-body">
+    <span class="job-title"><span class="row-name">{{.Name}}</span>
+      {{with .OutcomeLabel}}<span class="chip xs outcome o-{{.}}">{{.}}</span>{{end}}
+      {{if eq .Via "printer"}}<span class="chip xs">from the printer</span>{{end}}</span>
+    <span class="muted small">
+      {{if .Printer}}on {{.Printer}}{{end}}{{if .ItemName}} · for <a href="/items/{{.ItemRef}}">{{.ItemName}}</a>{{end}}
+      {{if .Estimate}} · {{.Estimate}}{{end}}
+      {{if .Grams}} · {{if .SpoolHex}}<span class="swatch xs" style="--c: {{.SpoolHex}}" aria-hidden="true"></span>{{end}}{{printf "%.0f" .Grams}} g{{if .SpoolName}} of <a href="/filament/{{.SpoolRef}}">{{.SpoolName}}</a>{{end}}{{if .Returned}} (put back){{end}}{{end}}
+      · {{since .SentAt}}
+      {{if not .OK}}<br><span class="warn">{{.Error}}</span>{{end}}
+    </span>
+  </span>
+  <span class="job-actions">
+    {{if .CanReturn}}
+    <form method="post" action="/printing/jobs/{{.ID}}/return" class="inline"
+          data-confirm="Mark this as never printed?{{if .GivesBack}} {{printf "%.0f" .Grams}} g goes back on {{.SpoolName}}.{{end}} Its hours stop counting towards maintenance.">
+      <button class="btn tiny ghost" type="submit">Didn't print</button>
+    </form>
+    {{end}}
+    {{if .Blob}}
+    <a class="btn tiny ghost" href="/printing/jobs/{{.ID}}/file">Download</a>
+    <form method="post" action="/printing/jobs/{{.ID}}/resend" class="inline">
+      <button class="btn tiny" type="submit">Send again</button>
+    </form>
+    {{end}}
+  </span>
+</li>
+{{end}}

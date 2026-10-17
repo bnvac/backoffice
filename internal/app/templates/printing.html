@@ -19,7 +19,8 @@ printer gets recorded properly and the answer gets worked out.</p>
 
 {{/* --- the machines ------------------------------------------------------- */}}
 
-<h2>Your printers</h2>
+<div class="section-head"><h2>Your printers</h2>
+  <a class="btn primary" href="/printing/pair">{{art "search"}}Find a printer on the network</a></div>
 
 {{if $d.Printers}}
 <ul class="printers">
@@ -45,6 +46,7 @@ printer gets recorded properly and the answer gets worked out.</p>
       {{if .Status.File}}<span class="muted small">{{.Status.File}}</span>{{end}}
     </div>
     {{if .Status.Printing}}
+    {{with .Status.LayerLabel}}<p class="muted small layer-line">{{.}}</p>{{end}}
     <div class="budget-bar print-bar"><span style="width: {{.Status.Percent}}%"></span></div>
     {{end}}
     {{if .StatusErr}}<p class="muted small">{{.StatusErr}}</p>{{end}}
@@ -125,37 +127,42 @@ printer gets recorded properly and the answer gets worked out.</p>
 {{end}}
 
 {{with $d.Jobs}}
-<h3 class="sub-head">Sent recently</h3>
+<h3 class="sub-head">Recent prints</h3>
 <ul class="rows jobs">
-  {{range .}}
-  <li class="{{if not .OK}}failed{{end}}">
-    <span class="job-state" aria-hidden="true">{{if not .OK}}✕{{else if .Started}}▶{{else}}↑{{end}}</span>
-    <span class="row-item">
-      <span class="job-body">
-        <span class="row-name">{{.Name}}</span>
-        <span class="muted small">
-          to {{.Printer}}{{if .ItemName}} · for <a href="/items/{{.ItemRef}}">{{.ItemName}}</a>{{end}}
-          {{if .Estimate}} · {{.Estimate}}{{end}}
-          {{if .Grams}} · {{if .SpoolHex}}<span class="swatch xs" style="--c: {{.SpoolHex}}" aria-hidden="true"></span>{{end}}{{printf "%.0f" .Grams}} g{{if .SpoolName}} of <a href="/filament/{{.SpoolRef}}">{{.SpoolName}}</a>{{end}}{{if .Returned}} (put back){{end}}{{end}}
-          · {{since .SentAt}}
-          {{if not .OK}}<br><span class="warn">{{.Error}}</span>{{else if .Started}} · started{{end}}
-        </span>
-      </span>
-    </span>
-    {{if .CanReturn}}
-    <form method="post" action="/printing/jobs/{{.ID}}/return" class="inline"
-          data-confirm="Mark this as never printed?{{if .GivesBack}} {{printf "%.0f" .Grams}} g goes back on {{.SpoolName}}.{{end}} Its hours stop counting towards maintenance.">
-      <button class="btn tiny ghost" type="submit">Didn't print</button>
-    </form>
-    {{end}}
-    <a class="btn tiny ghost" href="/printing/jobs/{{.ID}}/file">Download</a>
-    <form method="post" action="/printing/jobs/{{.ID}}/resend" class="inline">
-      <button class="btn tiny" type="submit">Send again</button>
-    </form>
-  </li>
-  {{end}}
+  {{range .}}{{template "job-row" .}}{{end}}
 </ul>
 {{end}}
+
+{{/* --- telling your phone ---------------------------------------------------- */}}
+<section class="panel-block notify-box" id="notify">
+  <div class="section-head"><h2><span class="notify-art" aria-hidden="true">{{art "power"}}</span>Tell my phone</h2>
+    {{if $d.Notify.On}}<span class="chip xs ok-chip">on · {{$d.Notify.Kind}}</span>{{end}}</div>
+  <p class="muted">When a print finishes or fails — with the slicer's picture of it — and when a sensor goes out of range.
+    Install the free <b>ntfy</b> app, subscribe to a topic name nobody would guess, and paste
+    <code>https://ntfy.sh/that-name</code> here. A Discord webhook works too.</p>
+  {{if $d.CanAdmin}}
+  <form method="post" action="/settings/notify" class="stack">
+    <label>Address {{if $d.Notify.On}}<span class="muted small">— now {{$d.Notify.Masked}}; leave blank to keep it</span>{{end}}
+      <input name="url" type="url" autocomplete="off" placeholder="https://ntfy.sh/my-workshop-x7q2"{{if not $d.Notify.On}} required{{end}}></label>
+    <div class="check-row">
+      <label class="inline-check"><input type="checkbox" name="finished"{{if $d.Notify.Finished}} checked{{end}}> Prints that finish</label>
+      <label class="inline-check"><input type="checkbox" name="failed"{{if $d.Notify.Failed}} checked{{end}}> Prints that fail or are cancelled</label>
+      <label class="inline-check"><input type="checkbox" name="sensors"{{if $d.Notify.Sensors}} checked{{end}}> Sensor alarms</label>
+    </div>
+    <div class="actions">
+      <button class="btn primary" type="submit" name="test" value="1">Save and send a test</button>
+      <button class="btn ghost" type="submit">Save</button>
+    </div>
+  </form>
+  {{if $d.Notify.On}}
+  <form method="post" action="/settings/notify/clear" class="inline" data-confirm="Stop sending notifications?">
+    <button class="btn tiny ghost danger" type="submit">Turn off</button></form>
+  {{end}}
+  {{with $d.Notify.LastErr}}<p class="sensor-alert">The last one did not arrive: {{.}}</p>{{end}}
+  {{else}}
+  <p class="muted small">Only an administrator can change where these go.</p>
+  {{end}}
+</section>
 
 {{/* --- add / edit --------------------------------------------------------- */}}
 

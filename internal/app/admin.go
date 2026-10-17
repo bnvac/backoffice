@@ -253,6 +253,9 @@ func (a *App) keptBlobs() map[string]*Blobs {
 	if a.files != nil {
 		out["files/"] = a.files
 	}
+	if a.thumbs != nil {
+		out["thumbs/"] = a.thumbs
+	}
 	return out
 }
 

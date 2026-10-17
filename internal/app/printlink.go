@@ -39,6 +39,16 @@ type PrintStatus struct {
 	Elapsed  time.Duration
 	Left     time.Duration // an estimate; zero when there is nothing to base one on
 	Message  string        // the printer's own words, or why it could not be asked
+	Layer    int           // the layer it is on, when the slicer told Klipper
+	Layers   int
+}
+
+// LayerLabel is "layer 84 of 210", or nothing when the printer does not know.
+func (s PrintStatus) LayerLabel() string {
+	if s.Layers <= 0 || !s.Printing() {
+		return ""
+	}
+	return fmt.Sprintf("layer %d of %d", s.Layer, s.Layers)
 }
 
 func (s PrintStatus) Printing() bool { return s.State == "printing" || s.State == "paused" }
@@ -253,6 +263,10 @@ func (m *moonraker) Status(ctx context.Context) (PrintStatus, error) {
 					Filename      string  `json:"filename"`
 					PrintDuration float64 `json:"print_duration"`
 					Message       string  `json:"message"`
+					Info          struct {
+						Total   *int `json:"total_layer"`
+						Current *int `json:"current_layer"`
+					} `json:"info"`
 				} `json:"print_stats"`
 				VirtualSD struct {
 					Progress float64 `json:"progress"`
@@ -274,6 +288,9 @@ func (m *moonraker) Status(ctx context.Context) (PrintStatus, error) {
 		Progress: clampPercent(st.VirtualSD.Progress * 100),
 		Elapsed:  time.Duration(st.PrintStats.PrintDuration * float64(time.Second)),
 		Message:  firstNonEmpty(st.PrintStats.Message, st.Display.Message),
+	}
+	if i := st.PrintStats.Info; i.Total != nil && i.Current != nil {
+		s.Layers, s.Layer = *i.Total, *i.Current
 	}
 	switch st.PrintStats.State {
 	case "printing", "paused", "complete", "cancelled", "error":

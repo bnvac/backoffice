@@ -845,6 +845,37 @@ CREATE TABLE sensor_readings (
 CREATE INDEX idx_sensor_readings ON sensor_readings(sensor_id, at);
 `,
 	},
+	{
+		name: "printer history sync, previews, notifications",
+		sql: `
+-- Small settings that are not worth a table each: where to send a phone
+-- notification, and which ones.
+CREATE TABLE settings (
+	key   TEXT PRIMARY KEY,
+	value TEXT NOT NULL DEFAULT ''
+);
+
+-- A job as the printer itself recorded it. remote_id is the printer's own
+-- job id, so a print is counted once however often the history is read;
+-- outcome is what the printer says happened; via is "printer" for a print
+-- started from the slicer or the screen rather than sent from here.
+ALTER TABLE print_jobs ADD COLUMN remote_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE print_jobs ADD COLUMN outcome TEXT NOT NULL DEFAULT '';
+ALTER TABLE print_jobs ADD COLUMN finished_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE print_jobs ADD COLUMN via TEXT NOT NULL DEFAULT '';
+ALTER TABLE print_jobs ADD COLUMN thumb TEXT NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX idx_print_jobs_remote ON print_jobs(printer_id, remote_id) WHERE remote_id <> '';
+
+-- Where reading the printer's history picks up from (Unix seconds). Zero
+-- means never read: the first read starts from then, not from the
+-- beginning, so pairing an old printer does not empty every spool.
+ALTER TABLE printers ADD COLUMN history_since REAL NOT NULL DEFAULT 0;
+
+-- Whether a sensor's current alarm has already been sent, so a damp dry box
+-- pings once rather than every minute.
+ALTER TABLE sensors ADD COLUMN alerted INTEGER NOT NULL DEFAULT 0;
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

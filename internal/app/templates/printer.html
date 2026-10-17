@@ -9,6 +9,11 @@
   <span class="head-art" aria-hidden="true">{{art "printer"}}</span>
   <h1>{{$c.Name}}</h1>
   <div class="folder-actions">
+    {{if eq $c.LinkKind "moonraker"}}{{if $c.LinkURL}}
+    <form method="post" action="/printing/printers/{{$c.ID}}/sync" class="inline">
+      <button class="btn tiny" type="submit" title="Read the printer's own print history now">Check for finished prints</button></form>
+    {{end}}{{end}}
+    {{if not $c.LinkURL}}<a class="btn tiny primary" href="/printing/pair">Find it on the network</a>{{end}}
     <a class="chip sm" href="/qr/printer/{{$c.ID}}" target="_blank" rel="noopener">QR code</a>
     <a class="btn tiny" href="/printing?edit={{$c.ID}}#edit">Edit</a>
   </div>
@@ -19,6 +24,19 @@
   <a class="tile" href="#maintenance"><b{{if $d.Due}} class="warn"{{end}}>{{$d.Due}}</b><span>maintenance due</span></a>
   {{if $c.Asked}}<div class="tile"><b class="state-word s-{{$c.Status.State}}">{{$c.Status.Headline}}</b><span>right now</span></div>{{end}}
 </div>
+
+{{if and $c.Asked $c.Status.Printing}}
+<section class="now-printing">
+  {{if $d.Thumb}}<img class="now-thumb" src="{{$d.Thumb}}" alt="Slicer preview of {{$c.Status.File}}" width="160" height="160"
+       onerror="this.remove()">{{end}}
+  <div class="now-main">
+    <span class="muted small">Printing now</span>
+    <b class="now-file">{{$c.Status.File}}</b>
+    <span>{{$c.Status.Headline}}{{with $c.Status.LayerLabel}} · {{.}}{{end}}</span>
+    <div class="budget-bar print-bar"><span style="width: {{$c.Status.Percent}}%"></span></div>
+  </div>
+</section>
+{{end}}
 
 {{with $c.Spool}}
 <div class="loaded-line">
@@ -125,11 +143,10 @@
 </section>
 
 {{with $d.Jobs}}
-<section class="panel-block">
-  <div class="section-head"><h2>Sent to it</h2></div>
-  <ul class="rows plain">
-    {{range .}}<li{{if .Returned}} class="replaced"{{end}}>{{.Name}}
-      <span class="muted small">{{if .Estimate}}{{.Estimate}} · {{end}}{{if .Grams}}{{printf "%.0f" .Grams}} g{{if .SpoolName}} of {{.SpoolName}}{{end}} · {{end}}{{since .SentAt}}{{if not .OK}} · failed{{end}}</span></li>{{end}}
+<section class="panel-block" id="history">
+  <div class="section-head"><h2>Prints</h2></div>
+  <ul class="rows jobs">
+    {{range .}}{{template "job-row" .}}{{end}}
   </ul>
 </section>
 {{end}}

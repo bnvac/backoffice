@@ -72,7 +72,8 @@
 <ul class="print-strip" data-printer-strip>
   {{range .}}
   <li data-printer="{{.ID}}">
-    <a href="/printing">
+    <a href="/printing/printers/{{.ID}}">
+      <img class="strip-thumb" data-thumb alt="" hidden width="56" height="56">
       <span class="dot" aria-hidden="true"></span>
       <b>{{.Name}}</b>
       <span class="muted small" data-headline>—</span>

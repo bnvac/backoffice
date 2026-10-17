@@ -93,8 +93,11 @@ type App struct {
 	// three orders of magnitude.
 	gcode    *Blobs
 	firmware *Blobs
-	files    *Blobs // project files: CAD, meshes, PCB, anything a build is made of
-	neb      *Neb   // nil when the assistant is not configured
+	files    *Blobs     // project files: CAD, meshes, PCB, anything a build is made of
+	thumbs   *Blobs     // slicer previews of prints, for the history and notifications
+	neb      *Neb       // nil when the assistant is not configured
+	syncMu   sync.Mutex // one history read at a time
+	live     liveThumbs // previews of what each printer is on now
 	tmpl     *template.Template
 	auth     *Auth
 	fetcher  *Fetcher
@@ -153,6 +156,10 @@ func Run() {
 	if err != nil {
 		log.Fatalf("project file store: %v", err)
 	}
+	thumbs, err := NewBlobs(filepath.Join(cfg.DataDir, "thumbs"), 4<<20)
+	if err != nil {
+		log.Fatalf("thumbnail store: %v", err)
+	}
 	store := &Store{db: db}
 	auth, err := NewAuth(cfg.Password, filepath.Join(cfg.DataDir, "session.key"), store)
 	if err != nil {
@@ -167,6 +174,7 @@ func Run() {
 		gcode:     gcode,
 		firmware:  firmware,
 		files:     files,
+		thumbs:    thumbs,
 		neb:       NewNeb(cfg.NebURL),
 		tmpl:      mustTemplates(),
 		auth:      auth,
@@ -205,10 +213,16 @@ func Run() {
 		}
 	}()
 
+	// Every minute: read connected printers' histories, send what finished
+	// to your phone, and check the sensors have not gone quiet.
+	watchCtx, stopWatching := context.WithCancel(context.Background())
+	go app.watch(watchCtx)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 	log.Print("shutting down")
+	stopWatching()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -389,6 +403,15 @@ func (a *App) routes() http.Handler {
 	protected.HandleFunc("GET /files/{id}", a.handleProjectFile)
 	protected.HandleFunc("POST /files/{id}/delete", a.handleDeleteProjectFile)
 	protected.HandleFunc("POST /files/{id}/print", a.handlePrintProjectFile)
+	protected.HandleFunc("GET /printing/pair", a.handlePair)
+	protected.HandleFunc("POST /printing/pair/scan", a.handlePairScan)
+	protected.HandleFunc("POST /printing/pair/check", a.handlePairCheck)
+	protected.HandleFunc("POST /printing/pair", a.handlePairConfirm)
+	protected.HandleFunc("POST /printing/printers/{id}/sync", a.handleSyncPrinter)
+	protected.HandleFunc("GET /printing/printers/{id}/live.png", a.handleLiveThumb)
+	protected.HandleFunc("GET /printing/jobs/{id}/thumb.png", a.handleJobThumb)
+	protected.HandleFunc("POST /settings/notify", a.handleSaveNotify)
+	protected.HandleFunc("POST /settings/notify/clear", a.handleClearNotify)
 	protected.HandleFunc("GET /sensors", a.handleSensors)
 	protected.HandleFunc("POST /sensors", a.handleAddSensor)
 	protected.HandleFunc("GET /sensors/{id}", a.handleSensor)

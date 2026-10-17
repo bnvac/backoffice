@@ -81,6 +81,28 @@ The dashboard shows what each printer is doing without waiting on one that's
 switched off. It won't take an STL: a printer runs G-code, and slicing needs a
 slicer, which isn't something to hide inside a single binary.
 
+**Pairing, and every print counted.** Plug a Klipper printer into your router
+and press **Find a printer on the network**: Backoffice tries Klipper's port
+(7125) on every address in this machine's own home network, lists what
+answers, and you say which printer it is. (In Docker, or if the scan comes up
+empty, type the address from the printer's screen instead.) Once paired, it
+reads the printer's own job history every minute, so a print started from the
+slicer or the touchscreen comes off the loaded spool too, and a print sent from
+here then cancelled halfway gets back the filament it didn't use. Pairing
+counts from that moment, not from the printer's whole past, so an old printer
+doesn't empty today's spools.
+
+No camera needed for the rest: the dashboard shows the slicer's preview of
+what's printing and which layer it's on, and every print in the history keeps
+its picture.
+
+**Tell my phone.** Paste an [ntfy](https://ntfy.sh) topic address (free, no
+account — install the app, pick a topic name nobody would guess) or a Discord
+webhook, and finished, failed and cancelled prints arrive with their preview
+attached, along with sensor alarms. Each alarm is sent once, not every minute.
+The address is a secret, so it's never shown back in full. Set `BASE_URL` and
+tapping a notification opens the printer's page.
+
 **Filament.** Spools in grams, with a colour. Every print sent from here reads
 the slicer's own figures out of the file — OrcaSlicer's header, PrusaSlicer's
 footer, Cura's metres — and takes the weight off the spool it was printed in:
@@ -293,7 +315,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 312 tests
+go test ./...          # 322 tests
 go test -race ./...
 go vet ./...
 ```

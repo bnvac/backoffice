@@ -1903,3 +1903,62 @@ main { animation: page-in .28s ease-out both; }
   background: var(--panel); box-shadow: var(--shadow); color: inherit; text-decoration: none; }
 .sensor-strip li.alarm a { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--danger); }
 .strip-art { width: 22px; flex: none; }
+.strip-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: contain; flex: none;
+  background: var(--panel-2); }
+
+/* --- print history rows -------------------------------------------------------- */
+.jobs li.job { display: flex; align-items: center; }
+.job-thumb { width: 48px; height: 48px; flex: none; border-radius: 10px; object-fit: contain;
+  background: var(--panel-2); }
+.job-thumb-none { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.jobs li.failed .job-thumb-none { color: var(--danger); }
+.jobs .job-body { flex: 1; }
+.job-title { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; }
+.job-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.outcome.o-printed { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.outcome.o-cancelled { color: var(--muted); }
+.outcome.o-failed { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+@media (max-width: 640px) { .jobs li.job { flex-wrap: wrap; } .job-actions { width: 100%; justify-content: flex-start; } }
+
+/* --- pairing ------------------------------------------------------------------- */
+.pair-steps { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); counter-reset: pair; }
+.pair-steps li { display: flex; gap: 12px; align-items: flex-start; background: var(--panel); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px; }
+.pair-steps li > span:last-child { display: flex; flex-direction: column; gap: 3px; }
+.pair-art { width: 38px; flex: none; }
+.pair-box form[data-scan] { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.found { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.found-one { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 14px; align-items: center;
+  padding: 14px; border-radius: var(--radius); background: var(--panel-2); animation: ob-rise .4s cubic-bezier(.2, .8, .2, 1) both; }
+.found-art { width: 46px; }
+.found-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.found-pair { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.found-pair select, .found-pair input, .pair-manual input { padding: 8px 11px; font: inherit; background: var(--panel);
+  color: var(--text); border: 1px solid var(--line); border-radius: 9px; }
+.ok-chip { color: var(--ok); align-self: flex-start; }
+.pair-none { margin: 16px 0 0; padding: 12px 14px; border-radius: var(--radius); background: var(--panel-2); }
+.pair-manual { margin-top: 16px; }
+.pair-manual summary { cursor: pointer; font-weight: 600; }
+.pair-manual .import-row { display: flex; gap: 8px; margin-top: 8px; }
+.pair-manual input { flex: 1; min-width: 0; }
+@media (max-width: 760px) { .found-one { grid-template-columns: 40px minmax(0, 1fr); } .found-pair { grid-column: 1 / -1; } }
+/* While the scan runs, the button says so. */
+form[data-scan].busy button { opacity: .7; pointer-events: none; }
+.section-head .btn .art { width: 18px; display: inline-block; vertical-align: -4px; margin-right: 6px; }
+.layer-line { margin: 2px 0 0; }
+.notify-art { width: 26px; display: inline-block; vertical-align: -5px; margin-right: 8px; }
+.notify-art .art { width: 100%; }
+.check-row { display: flex; gap: 8px 18px; flex-wrap: wrap; }
+.now-printing { display: flex; gap: 18px; align-items: center; background: var(--panel); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px; margin: 0 0 16px; }
+.now-thumb { width: 120px; height: 120px; object-fit: contain; border-radius: 12px; background: var(--panel-2); flex: none; }
+.now-main { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.now-file { overflow-wrap: anywhere; }
+.ob-find { display: flex; gap: 12px; align-items: center; padding: 12px 14px; margin: 4px 0 14px;
+  border-radius: var(--radius); background: var(--panel-2); color: var(--text); text-decoration: none;
+  border: 1.5px solid var(--line); transition: border-color .15s, transform .15s; }
+.ob-find:hover { border-color: var(--text); transform: translateY(-1px); }
+.ob-find > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.ob-find small { color: var(--muted); }
+.ob-find-art { width: 36px; flex: none; }

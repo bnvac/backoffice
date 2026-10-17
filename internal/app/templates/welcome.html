@@ -192,7 +192,12 @@ wire strippers">{{$d.Raw}}</textarea>
         </label>
         {{end}}
       </fieldset>
-      <label>Its address on the network <span class="muted">— optional; a Neptune 4 answers on port 7125</span>
+      <a class="ob-find" href="/printing/pair?next=%2Fwelcome%3Fstep%3Dai">
+        <span class="ob-find-art" aria-hidden="true">{{art "search"}}</span>
+        <span><b>Plugged into your router? Find it on the network</b>
+          <small>One button — Backoffice looks for it and connects it, no address to type.</small></span>
+      </a>
+      <label>Or type its address <span class="muted">— optional; a Neptune 4 answers on port 7125</span>
         <input name="link_url" inputmode="url" autocomplete="off" placeholder="http://192.168.1.50:7125">
       </label>
       <p class="muted small">Not on the list? Pick the closest and correct it on the Printing page,

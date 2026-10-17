@@ -50,6 +50,7 @@ type Sensor struct {
 	LastTemp    *float64
 	LastHum     *float64
 	CreatedAt   time.Time
+	Alerted     bool // its current alarm has been sent
 }
 
 func (s Sensor) KindInfo() SensorKind { return sensorKind(s.Kind) }
@@ -152,14 +153,14 @@ func validReading(temp, hum *float64) error {
 
 // --- storage ---------------------------------------------------------------------
 
-const sensorCols = `id, name, kind, location, max_humidity, max_temp, min_temp, last_at, last_temp, last_hum, created_at`
+const sensorCols = `id, name, kind, location, max_humidity, max_temp, min_temp, last_at, last_temp, last_hum, created_at, alerted`
 
 func scanSensor(row rowScanner) (Sensor, error) {
 	var s Sensor
 	var last, created string
 	var t, h sql.NullFloat64
 	err := row.Scan(&s.ID, &s.Name, &s.Kind, &s.Location, &s.MaxHumidity, &s.MaxTemp, &s.MinTemp,
-		&last, &t, &h, &created)
+		&last, &t, &h, &created, &s.Alerted)
 	if t.Valid {
 		v := t.Float64
 		s.LastTemp = &v

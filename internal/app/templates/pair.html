@@ -1,0 +1,84 @@
+{{define "pair.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/printing">Printing</a>
+  <span class="sep">/</span><span class="here">Find your printer</span></nav>
+
+<div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "search"}}</span>
+  <h1>Find your printer</h1>
+</div>
+
+<ol class="pair-steps">
+  <li><span class="pair-art" aria-hidden="true">{{art "power"}}</span>
+    <span><b>Plug it into your router</b><span class="muted small">Ethernet or Wi-Fi, on the same network as this computer — not straight into the PC.</span></span></li>
+  <li><span class="pair-art" aria-hidden="true">{{art "search"}}</span>
+    <span><b>Look for it</b><span class="muted small">Backoffice asks every address on your network whether Klipper is there. Takes a few seconds.</span></span></li>
+  <li><span class="pair-art" aria-hidden="true">{{art "check"}}</span>
+    <span><b>Say which printer it is</b><span class="muted small">From then on every print is counted, however you start it.</span></span></li>
+</ol>
+
+<section class="panel-block pair-box">
+  <form method="post" action="/printing/pair/scan" data-scan>
+    {{if $d.Next}}<input type="hidden" name="next" value="{{$d.Next}}">{{end}}
+    <button class="btn primary big" type="submit"><span data-scan-label>{{if $d.Scanned}}Look again{{else}}Look for printers{{end}}</span></button>
+    <span class="muted small">{{if $d.Subnets}}on {{range $i, $s := $d.Subnets}}{{if $i}}, {{end}}{{$s}}{{end}}{{else}}this computer is not on a home network it can scan — type the address below{{end}}</span>
+  </form>
+
+  {{if $d.Scanned}}
+    {{if $d.Found}}
+    <ul class="found">
+      {{range $d.Found}}
+      <li class="found-one">
+        <span class="found-art" aria-hidden="true">{{art "printer"}}</span>
+        <div class="found-main">
+          <b>{{if .Host}}{{.Host}}{{else}}Klipper printer{{end}}</b>
+          <span class="muted small"><code>{{.Address}}</code> · {{.State}}{{if .Version}} · Klipper {{.Version}}{{end}}</span>
+          {{if .PairedTo}}<span class="chip xs ok-chip">paired as {{.PairedTo}}</span>{{end}}
+        </div>
+        {{if not .PairedTo}}
+        <form method="post" action="/printing/pair" class="found-pair">
+          <input type="hidden" name="address" value="{{.Address}}">
+          {{if $d.Next}}<input type="hidden" name="next" value="{{$d.Next}}">{{end}}
+          <label class="sr-only" for="pick-{{.Address}}">Which printer is it?</label>
+          <select name="printer" id="pick-{{.Address}}" required>
+            <option value="">Which printer is this?</option>
+            {{with $d.Printers}}<optgroup label="Already here">{{range .}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
+            <optgroup label="Add a new one">
+              {{range $d.Presets}}<option value="preset:{{.Name}}"{{if and (not $d.Printers) (eq .Name "Elegoo Neptune 4")}} selected{{end}}>{{.Name}}</option>{{end}}
+            </optgroup>
+          </select>
+          {{if eq .State "needs its API key"}}<input name="key" placeholder="API key" autocomplete="off">{{end}}
+          <button class="btn primary" type="submit">Pair</button>
+        </form>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{else if $d.Checked}}
+    <p class="pair-none">Nothing that looks like Klipper answered at <code>{{$d.Checked}}</code>. Check the printer is on and
+      the address is the one on its screen.</p>
+    {{else}}
+    <p class="pair-none">No Klipper printers answered. Is it switched on and on the same network? A printer on Wi-Fi
+      can take a minute to join after it boots.</p>
+    {{end}}
+  {{end}}
+
+  <details class="pair-manual"{{if and $d.Scanned (not $d.Found)}} open{{end}}>
+    <summary>Type its address instead</summary>
+    <p class="muted small">On a Neptune 4: the touchscreen, <b>Settings → Network</b>. It is also the address you open Fluidd at.
+      Running Backoffice in Docker? The scan cannot see past Docker's own network, so this is the way.</p>
+    <form method="post" action="/printing/pair/check" class="import-row">
+      {{if $d.Next}}<input type="hidden" name="next" value="{{$d.Next}}">{{end}}
+      <input name="address" placeholder="192.168.1.50" required autocomplete="off" inputmode="url">
+      <button class="btn" type="submit">Check it</button>
+    </form>
+  </details>
+</section>
+
+<p class="muted small">Only this computer's own home networks are looked at, only when you press the button, and
+  only on Klipper's port (7125). Nothing is changed on the printer.</p>
+
+{{template "bottom" .}}
+{{end}}

@@ -749,11 +749,28 @@ document.querySelectorAll('[data-scanner]').forEach((root) => {
       const li = strip.querySelector(`[data-printer="${p.id}"]`);
       if (!li) continue;
       li.className = 's-' + p.state;
-      li.querySelector('[data-headline]').textContent =
-        p.headline + (p.file && (p.state === 'printing' || p.state === 'paused') ? ' · ' + p.file : '');
-      li.title = p.error || '';
-      const bar = li.querySelector('.print-bar');
       const printing = p.state === 'printing' || p.state === 'paused';
+      li.querySelector('[data-headline]').textContent =
+        p.headline + (printing && p.layer ? ' · ' + p.layer : '') + (p.file && printing ? ' · ' + p.file : '');
+      li.title = p.error || '';
+      // The slicer's preview of what is printing: the nearest thing to a
+      // camera a printer without one has. Loaded once per file.
+      const img = li.querySelector('[data-thumb]');
+      if (img) {
+        if (printing && p.thumb) {
+          if (img.dataset.src !== p.thumb) {
+            img.dataset.src = p.thumb;
+            img.onload = () => { img.hidden = img.naturalWidth === 0; };
+            img.onerror = () => { img.hidden = true; };
+            img.src = p.thumb;
+          }
+        } else {
+          img.hidden = true;
+          img.removeAttribute('src');
+          delete img.dataset.src;
+        }
+      }
+      const bar = li.querySelector('.print-bar');
       bar.hidden = !printing;
       if (printing) bar.firstElementChild.style.width = p.percent + '%';
     }
@@ -1008,7 +1025,9 @@ document.querySelectorAll('[data-scanner]').forEach((root) => {
   });
 
   // On the setup pages the assistant opens itself once, to say hello.
-  if (store.get() || (location.pathname === '/welcome' && !sessionStorage.getItem('chat-greeted'))) {
+  // On a phone the panel covers the page, so it waits to be asked there.
+  const roomy = window.matchMedia('(min-width: 900px)').matches;
+  if ((store.get() && roomy) || (roomy && location.pathname === '/welcome' && !sessionStorage.getItem('chat-greeted'))) {
     try { sessionStorage.setItem('chat-greeted', '1'); } catch {}
     setOpen(true);
   }
@@ -1047,5 +1066,14 @@ document.querySelectorAll('[data-copy]').forEach((btn) => {
       range.selectNodeContents(src);
       const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
     }
+  });
+});
+
+// The network scan takes a few seconds; say so while it runs.
+document.querySelectorAll('form[data-scan]').forEach((f) => {
+  f.addEventListener('submit', () => {
+    f.classList.add('busy');
+    const l = f.querySelector('[data-scan-label]');
+    if (l) l.textContent = 'Looking…';
   });
 });

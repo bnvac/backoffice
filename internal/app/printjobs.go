@@ -29,6 +29,13 @@ type PrintJob struct {
 	EstSeconds float64
 	ReturnedAt time.Time // filament put back because it did not print
 
+	// What the printer itself recorded, once its history has been read.
+	RemoteID   string
+	Outcome    string // "" not known | completed | cancelled | failed
+	FinishedAt time.Time
+	Via        string // "" sent from here | "printer" started from the slicer or screen
+	Thumb      string // the slicer's preview, in the thumbs store
+
 	Printer   string // joined in for the list
 	ItemName  string
 	SpoolName string
@@ -47,11 +54,25 @@ func (j PrintJob) Estimate() string {
 // CanReturn is whether "it did not print" means anything: there is filament to
 // put back, or estimated hours to stop counting.
 func (j PrintJob) CanReturn() bool {
-	return j.OK() && !j.Returned() && ((j.SpoolID != nil && j.Grams > 0) || j.EstSeconds > 0)
+	// Once the printer has said how it went, its word stands.
+	return j.OK() && !j.Returned() && j.Outcome == "" && ((j.SpoolID != nil && j.Grams > 0) || j.EstSeconds > 0)
 }
 
 // GivesBack is whether marking it as not printed returns any filament.
 func (j PrintJob) GivesBack() bool { return j.SpoolID != nil && j.Grams > 0 }
+
+// OutcomeLabel is how it ended, in a word, once the printer has said.
+func (j PrintJob) OutcomeLabel() string {
+	switch j.Outcome {
+	case "completed":
+		return "printed"
+	case "cancelled":
+		return "cancelled"
+	case "failed":
+		return "failed"
+	}
+	return ""
+}
 
 func (j PrintJob) OK() bool          { return j.Error == "" }
 func (j PrintJob) SizeLabel() string { return humanBytes(j.Size) }
@@ -64,12 +85,22 @@ func (j PrintJob) ItemRef() int64 {
 	return *j.ItemID
 }
 
+// sentStamp is now, unless the job carries its own time (one read back from
+// the printer's history happened when the printer says it did).
+func sentStamp(t time.Time) string {
+	if t.IsZero() {
+		return nowRFC3339()
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
 func (s *Store) AddPrintJob(j PrintJob) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO print_jobs (printer_id, item_id, name, blob, sha256,
-		size, started, error, sent_at, spool_id, grams, est_seconds, project_id)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		j.PrinterID, j.ItemID, j.Name, j.Blob, j.SHA256, j.Size, j.Started, j.Error, nowRFC3339(),
-		j.SpoolID, j.Grams, j.EstSeconds, j.ProjectID)
+		size, started, error, sent_at, spool_id, grams, est_seconds, project_id,
+		remote_id, outcome, finished_at, via, thumb)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		j.PrinterID, j.ItemID, j.Name, j.Blob, j.SHA256, j.Size, j.Started, j.Error, sentStamp(j.SentAt),
+		j.SpoolID, j.Grams, j.EstSeconds, j.ProjectID, j.RemoteID, j.Outcome, stamp(j.FinishedAt), j.Via, j.Thumb)
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +120,7 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 	q := `SELECT j.id, j.printer_id, j.item_id, j.name, j.blob, j.sha256, j.size, j.started,
 		j.error, j.sent_at, p.name, COALESCE(i.name, ''), j.spool_id, j.grams, j.est_seconds,
 		j.returned_at, COALESCE(sp.colour_name, ''), COALESCE(sp.material, ''),
-		COALESCE(sp.colour_hex, ''), j.project_id
+		COALESCE(sp.colour_hex, ''), j.project_id, j.remote_id, j.outcome, j.finished_at, j.via, j.thumb
 		FROM print_jobs j
 		JOIN printers p ON p.id = j.printer_id
 		LEFT JOIN items i ON i.id = j.item_id
@@ -124,12 +155,14 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 	for rows.Next() {
 		var j PrintJob
 		var item, spool, project sql.NullInt64
-		var sent, returned, colourName, material string
+		var sent, returned, colourName, material, finished string
 		if err := rows.Scan(&j.ID, &j.PrinterID, &item, &j.Name, &j.Blob, &j.SHA256, &j.Size,
 			&j.Started, &j.Error, &sent, &j.Printer, &j.ItemName, &spool, &j.Grams,
-			&j.EstSeconds, &returned, &colourName, &material, &j.SpoolHex, &project); err != nil {
+			&j.EstSeconds, &returned, &colourName, &material, &j.SpoolHex, &project,
+			&j.RemoteID, &j.Outcome, &finished, &j.Via, &j.Thumb); err != nil {
 			return nil, err
 		}
+		j.FinishedAt, _ = time.Parse(time.RFC3339, finished)
 		if project.Valid {
 			id := project.Int64
 			j.ProjectID = &id
@@ -156,11 +189,13 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 func (s *Store) GetPrintJob(id int64) (PrintJob, error) {
 	var j PrintJob
 	var item, spool, project sql.NullInt64
-	var sent, returned string
+	var sent, returned, finished string
 	err := s.db.QueryRow(`SELECT id, printer_id, item_id, name, blob, sha256, size, started,
-		error, sent_at, spool_id, grams, est_seconds, returned_at, project_id FROM print_jobs WHERE id = ?`, id).
+		error, sent_at, spool_id, grams, est_seconds, returned_at, project_id,
+		remote_id, outcome, finished_at, via, thumb FROM print_jobs WHERE id = ?`, id).
 		Scan(&j.ID, &j.PrinterID, &item, &j.Name, &j.Blob, &j.SHA256, &j.Size, &j.Started,
-			&j.Error, &sent, &spool, &j.Grams, &j.EstSeconds, &returned, &project)
+			&j.Error, &sent, &spool, &j.Grams, &j.EstSeconds, &returned, &project,
+			&j.RemoteID, &j.Outcome, &finished, &j.Via, &j.Thumb)
 	if err != nil {
 		return PrintJob{}, err
 	}
@@ -178,6 +213,7 @@ func (s *Store) GetPrintJob(id int64) (PrintJob, error) {
 	}
 	j.SentAt, _ = time.Parse(time.RFC3339, sent)
 	j.ReturnedAt, _ = time.Parse(time.RFC3339, returned)
+	j.FinishedAt, _ = time.Parse(time.RFC3339, finished)
 	return j, nil
 }
 

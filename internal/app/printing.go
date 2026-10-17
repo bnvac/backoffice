@@ -40,6 +40,7 @@ type Printer struct {
 	// own lifetime counter when it reports one.
 	BaseHours       float64
 	ReportedSeconds float64
+	HistorySince    float64 // where reading the printer's own history picks up, Unix seconds
 
 	CreatedAt time.Time
 }
@@ -511,14 +512,14 @@ func PresetByName(name string) (Printer, bool) {
 // added in one place rather than in four queries that can drift apart.
 const printerColumns = `id, name, bed_x, bed_y, bed_z, nozzle, nozzle_kind, max_hotend,
 	max_bed, enclosed, direct_drive, dryer, notes, link_kind, link_url, link_key,
-	base_hours, reported_seconds, created_at`
+	base_hours, reported_seconds, created_at, history_since`
 
 func scanPrinter(row rowScanner) (Printer, error) {
 	var p Printer
 	var created string
 	err := row.Scan(&p.ID, &p.Name, &p.Bed.X, &p.Bed.Y, &p.Bed.Z, &p.Nozzle, &p.NozzleKind,
 		&p.MaxHotend, &p.MaxBed, &p.Enclosed, &p.DirectDrive, &p.Dryer, &p.Notes,
-		&p.LinkKind, &p.LinkURL, &p.LinkKey, &p.BaseHours, &p.ReportedSeconds, &created)
+		&p.LinkKind, &p.LinkURL, &p.LinkKey, &p.BaseHours, &p.ReportedSeconds, &created, &p.HistorySince)
 	if err != nil {
 		return Printer{}, err
 	}

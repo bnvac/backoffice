@@ -245,6 +245,7 @@ func (a *App) handleSensorReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s, _ = a.store.GetSensor(s.ID)
+	a.sensorAlarm(r.Context(), s)
 	out := map[string]any{"ok": true, "sensor": s.Name}
 	if alerts := s.Alerts(); len(alerts) > 0 {
 		out["alert"] = strings.Join(alerts, "; ")

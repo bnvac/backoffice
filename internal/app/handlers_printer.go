@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ type printerPage struct {
 	Items   []Item
 	Spools  []Spool
 	Jobs    []PrintJob
+	Thumb   string // the live preview of what it is printing
 }
 
 func (a *App) handlePrinter(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +70,10 @@ func (a *App) handlePrinter(w http.ResponseWriter, r *http.Request) {
 	data.Spares, _ = a.store.Spares(id)
 	data.Items, _ = a.store.ListItems(Query{Sort: "name"})
 	data.Spools, _ = a.store.ListSpools(false)
-	data.Jobs, _ = a.store.PrintJobs(JobFilter{Printer: id}, 10)
+	data.Jobs, _ = a.store.PrintJobs(JobFilter{Printer: id}, 20)
+	if c := cards[0]; c.LinkKind == "moonraker" && c.Status.Printing() && c.Status.File != "" {
+		data.Thumb = fmt.Sprintf("/printing/printers/%d/live.png?file=%s", id, url.QueryEscape(c.Status.File))
+	}
 	if sp, ok := a.store.LoadedSpool(id); ok {
 		data.Card.Spool = &sp
 	}

@@ -1,12 +1,14 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -31,6 +33,8 @@ type printingData struct {
 	Items    []Item
 	Limit    string
 	Spools   []Spool
+	Notify   NotifySettings
+	CanAdmin bool
 }
 
 // printerCard is a printer with what it said when asked just now.
@@ -90,6 +94,8 @@ func (a *App) handlePrinting(w http.ResponseWriter, r *http.Request) {
 		Links:    LinkKinds,
 		Caps:     SummariseWorkshop(tools, printers),
 		Limit:    a.gcode.Limit(),
+		Notify:   a.store.NotifySettings(),
+		CanAdmin: a.canAdminister(r),
 	}
 	if data.Jobs, err = a.store.RecentPrintJobs(0, 12); err != nil {
 		a.fail(w, err, http.StatusInternalServerError)
@@ -345,16 +351,23 @@ func (a *App) handlePrinterStatus(w http.ResponseWriter, r *http.Request) {
 		Percent  int    `json:"percent"`
 		File     string `json:"file"`
 		Error    string `json:"error,omitempty"`
+		Layer    string `json:"layer,omitempty"`
+		Thumb    string `json:"thumb,omitempty"`
 	}
 	list := []out{}
 	for _, c := range askPrinters(r.Context(), printers) {
 		if !c.Asked {
 			continue
 		}
-		list = append(list, out{
+		o := out{
 			ID: c.ID, Name: c.Name, State: c.Status.State, Headline: c.Status.Headline(),
 			Percent: c.Status.Percent(), File: c.Status.File, Error: c.StatusErr,
-		})
+			Layer: c.Status.LayerLabel(),
+		}
+		if c.LinkKind == "moonraker" && c.Status.File != "" && c.Status.State != "offline" {
+			o.Thumb = fmt.Sprintf("/printing/printers/%d/live.png?file=%s", c.ID, url.QueryEscape(c.Status.File))
+		}
+		list = append(list, o)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -544,6 +557,16 @@ func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job Pri
 			warnings = append(warnings, fmt.Sprintf("%s is what is loaded on %s, not %s — swap it before the print starts",
 				loaded.Label(), p.Name, spool.Label()))
 		}
+	}
+
+	// The slicer's preview, kept with the job for the history and the phone.
+	if f, err := a.gcode.Open(job.Blob); err == nil && a.thumbs != nil {
+		if png := GcodeThumbnail(f); png != nil {
+			if blob, _, _, err := a.thumbs.Save(bytes.NewReader(png), ".png"); err == nil {
+				job.Thumb = blob
+			}
+		}
+		f.Close()
 	}
 
 	link, ok := linkFor(p)
