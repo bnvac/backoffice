@@ -225,7 +225,35 @@ func (a *App) WriteBackup(w io.Writer) error {
 			}
 		}
 	}
+	// Firmware images and project files are the only copy of something the
+	// person made. Sliced G-code is left out: it can run to hundreds of
+	// megabytes and is made again from the model in a minute.
+	for prefix, b := range a.keptBlobs() {
+		names, err := b.Names()
+		if err != nil {
+			continue
+		}
+		for _, n := range names {
+			p, _ := b.Path(n)
+			if err := addFileToZip(zw, p, prefix+n); err != nil {
+				zw.Close()
+				return err
+			}
+		}
+	}
 	return zw.Close()
+}
+
+// keptBlobs are the file stores that go into a backup, by their folder in it.
+func (a *App) keptBlobs() map[string]*Blobs {
+	out := map[string]*Blobs{}
+	if a.firmware != nil {
+		out["firmware/"] = a.firmware
+	}
+	if a.files != nil {
+		out["files/"] = a.files
+	}
+	return out
 }
 
 func addFileToZip(zw *zip.Writer, path, name string) error {
@@ -254,6 +282,7 @@ type RestoreReport struct {
 	Tables int
 	Rows   int64
 	Photos int
+	Files  int // firmware images and project files
 	From   int // the schema version the backup was written at
 }
 
@@ -290,8 +319,13 @@ func (a *App) Restore(r io.Reader) (RestoreReport, error) {
 	// point writing any photos.
 	dbPath := filepath.Join(tmp, backupDBName)
 	found := false
-	var photoEntries []*zip.File
+	var photoEntries, blobEntries []*zip.File
+	kept := a.keptBlobs()
 	for _, f := range zr.File {
+		if i := strings.IndexByte(f.Name, '/'); i > 0 && kept[f.Name[:i+1]] != nil {
+			blobEntries = append(blobEntries, f)
+			continue
+		}
 		switch {
 		case f.Name == backupDBName:
 			if err := extractZipFile(f, dbPath); err != nil {
@@ -343,6 +377,17 @@ func (a *App) Restore(r io.Reader) (RestoreReport, error) {
 			continue
 		}
 		rep.Photos++
+	}
+	for _, f := range blobEntries {
+		i := strings.IndexByte(f.Name, '/')
+		p, ok := kept[f.Name[:i+1]].Path(f.Name[i+1:])
+		if !ok {
+			continue // not a name the store would have written
+		}
+		if err := extractZipFile(f, p); err != nil {
+			continue
+		}
+		rep.Files++
 	}
 	a.photos.RebuildThumbs()
 	return rep, nil

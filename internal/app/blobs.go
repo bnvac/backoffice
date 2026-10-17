@@ -88,6 +88,21 @@ func (b *Blobs) Path(name string) (string, bool) {
 	return filepath.Join(b.dir, name), true
 }
 
+// Names lists every stored file, for the backup.
+func (b *Blobs) Names() ([]string, error) {
+	entries, err := os.ReadDir(b.dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range entries {
+		if !e.IsDir() && validBlobName(e.Name()) {
+			out = append(out, e.Name())
+		}
+	}
+	return out, nil
+}
+
 // Limit is how big a file Save will take, for the message when one is refused.
 func (b *Blobs) Limit() string { return humanBytes(b.max) }
 

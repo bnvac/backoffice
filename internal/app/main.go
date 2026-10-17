@@ -93,7 +93,8 @@ type App struct {
 	// three orders of magnitude.
 	gcode    *Blobs
 	firmware *Blobs
-	neb      *Neb // nil when the assistant is not configured
+	files    *Blobs // project files: CAD, meshes, PCB, anything a build is made of
+	neb      *Neb   // nil when the assistant is not configured
 	tmpl     *template.Template
 	auth     *Auth
 	fetcher  *Fetcher
@@ -148,6 +149,10 @@ func Run() {
 	if err != nil {
 		log.Fatalf("firmware store: %v", err)
 	}
+	files, err := NewBlobs(filepath.Join(cfg.DataDir, "files"), maxProjectFile)
+	if err != nil {
+		log.Fatalf("project file store: %v", err)
+	}
 	store := &Store{db: db}
 	auth, err := NewAuth(cfg.Password, filepath.Join(cfg.DataDir, "session.key"), store)
 	if err != nil {
@@ -161,6 +166,7 @@ func Run() {
 		photos:    photos,
 		gcode:     gcode,
 		firmware:  firmware,
+		files:     files,
 		neb:       NewNeb(cfg.NebURL),
 		tmpl:      mustTemplates(),
 		auth:      auth,
@@ -220,6 +226,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /login", a.handleLoginForm)
 	mux.HandleFunc("POST /login", a.handleLogin)
 	mux.HandleFunc("POST /logout", a.handleLogout)
+	// Boards post readings with their own token; they cannot sign in.
+	mux.HandleFunc("POST /api/sensors/reading", a.handleSensorReading)
 
 	// Everything below requires a session when AUTH_PASSWORD is set.
 	protected := http.NewServeMux()
@@ -377,6 +385,16 @@ func (a *App) routes() http.Handler {
 
 	// The lab notebook.
 	protected.HandleFunc("POST /projects/{id}/log", a.handleAddLogEntry)
+	protected.HandleFunc("POST /projects/{id}/files", a.handleUploadProjectFiles)
+	protected.HandleFunc("GET /files/{id}", a.handleProjectFile)
+	protected.HandleFunc("POST /files/{id}/delete", a.handleDeleteProjectFile)
+	protected.HandleFunc("POST /files/{id}/print", a.handlePrintProjectFile)
+	protected.HandleFunc("GET /sensors", a.handleSensors)
+	protected.HandleFunc("POST /sensors", a.handleAddSensor)
+	protected.HandleFunc("GET /sensors/{id}", a.handleSensor)
+	protected.HandleFunc("POST /sensors/{id}", a.handleUpdateSensor)
+	protected.HandleFunc("POST /sensors/{id}/token", a.handleSensorToken)
+	protected.HandleFunc("POST /sensors/{id}/delete", a.handleDeleteSensor)
 
 	// The checklist. Every one of these posts back to the project page, so
 	// ticking a box works with JavaScript off.

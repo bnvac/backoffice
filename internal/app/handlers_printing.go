@@ -472,8 +472,8 @@ func (a *App) handleResendJob(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	job := PrintJob{PrinterID: printerID, ItemID: old.ItemID, Name: old.Name, Blob: old.Blob,
-		SHA256: old.SHA256, Size: old.Size}
+	job := PrintJob{PrinterID: printerID, ItemID: old.ItemID, ProjectID: old.ProjectID, Name: old.Name,
+		Blob: old.Blob, SHA256: old.SHA256, Size: old.Size}
 	a.sendJob(w, r, p, job, r.FormValue("start") != "", r.FormValue("spool_id"))
 }
 
@@ -509,6 +509,11 @@ func (a *App) chooseSpool(choice string, printerID int64, meta GcodeMeta) (*Spoo
 // different plastic — do not stop the send: the person at the printer may know
 // better than the numbers, and they are told rather than overruled.
 func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job PrintJob, start bool, spoolChoice string) {
+	// Sent from a project, the answer goes back to the project.
+	back := "/printing"
+	if next := safeNext(r.FormValue("next")); next != "/" {
+		back = next
+	}
 	meta := a.gcodeMeta(job.Blob)
 	job.EstSeconds = meta.Seconds
 
@@ -571,7 +576,7 @@ func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job Pri
 	a.store.Record(a.actor(r), "sent a print", "printer", p.ID, job.Name)
 
 	if err != nil {
-		redirect(w, r, "/printing", "", "Could not send "+job.Name+": "+err.Error())
+		redirect(w, r, back, "", "Could not send "+job.Name+": "+err.Error())
 		return
 	}
 
@@ -599,7 +604,7 @@ func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job Pri
 	if len(warnings) > 0 {
 		warn = "Heads up: " + strings.Join(warnings, "; ") + "."
 	}
-	redirect(w, r, "/printing", msg+used, warn)
+	redirect(w, r, back, msg+used, warn)
 }
 
 // handleReturnFilament is "that one didn't print": the grams go back on the

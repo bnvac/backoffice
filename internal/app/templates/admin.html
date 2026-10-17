@@ -76,7 +76,8 @@
 
 <section class="panel-block">
   <div class="section-head"><h2>Backup</h2></div>
-  <p class="muted">A backup is one zip holding a consistent snapshot of the database and every photo.
+  <p class="muted">A backup is one zip holding a consistent snapshot of the database, every photo, every firmware image and every project file.
+    Sliced G-code is left out — it can be huge, and the slicer makes it again from the model.
     Restoring replaces everything currently here — it is not a merge.</p>
 
   {{if $d.CanEdit}}

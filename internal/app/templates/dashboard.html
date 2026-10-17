@@ -84,6 +84,22 @@
 </ul>
 {{end}}
 
+{{with $d.Sensors}}
+<ul class="sensor-strip">
+  {{range .}}
+  <li{{if .Alarm}} class="alarm"{{end}}>
+    <a href="/sensors/{{.ID}}">
+      <span class="strip-art" aria-hidden="true">{{art .KindInfo.Art}}</span>
+      <b>{{.Name}}</b>
+      {{if .HasReading}}<span{{if .HumHigh}} class="warn"{{end}}>{{.HumLabel}}</span> <span{{if .TempOut}} class="warn"{{end}}>{{.TempLabel}}</span>
+      {{if .Quiet}}<span class="warn small">quiet</span>{{end}}{{else}}<span class="muted small">waiting for a reading</span>{{end}}
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{range $d.SensorAlerts}}<p class="sensor-alert">{{.}}</p>{{end}}
+{{end}}
+
 {{if $d.Recent}}
 <section class="panel-block">
   <div class="section-head"><h2>Recently updated</h2><a class="chip sm" href="/items">All items</a></div>

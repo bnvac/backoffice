@@ -793,6 +793,58 @@ CREATE TABLE assistant_messages (
 CREATE INDEX idx_assistant_session ON assistant_messages(session, id);
 `,
 	},
+	{
+		name: "project files, build cost, sensors",
+		sql: `
+-- The files a build is made of — CAD, meshes, G-code, PCB, firmware, notes —
+-- kept with the project. A file uploaded again under the same name is the next
+-- revision of it, not a duplicate.
+CREATE TABLE project_files (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	name       TEXT NOT NULL,
+	kind       TEXT NOT NULL DEFAULT 'other',
+	rev        INTEGER NOT NULL DEFAULT 1,
+	blob       TEXT NOT NULL,
+	sha256     TEXT NOT NULL,
+	size       INTEGER NOT NULL DEFAULT 0,
+	note       TEXT NOT NULL DEFAULT '',
+	author     TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL
+);
+CREATE INDEX idx_project_files ON project_files(project_id, name, rev);
+
+-- A print sent from a project counts towards that project's filament and time.
+ALTER TABLE print_jobs ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+
+-- What a spool cost, so a build can be costed in money and not just grams.
+ALTER TABLE spools ADD COLUMN price REAL NOT NULL DEFAULT 0;
+
+-- Sensors around the workshop: a dry box, the printer enclosure, the room.
+-- Each posts with its own token; only a hash of it is kept.
+CREATE TABLE sensors (
+	id           INTEGER PRIMARY KEY AUTOINCREMENT,
+	name         TEXT NOT NULL,
+	kind         TEXT NOT NULL DEFAULT 'room',
+	location     TEXT NOT NULL DEFAULT '',
+	token_hash   TEXT NOT NULL UNIQUE,
+	max_humidity REAL NOT NULL DEFAULT 0,
+	max_temp     REAL NOT NULL DEFAULT 0,
+	min_temp     REAL NOT NULL DEFAULT 0,
+	last_at      TEXT NOT NULL DEFAULT '',
+	last_temp    REAL,
+	last_hum     REAL,
+	created_at   TEXT NOT NULL
+);
+CREATE TABLE sensor_readings (
+	sensor_id INTEGER NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+	at        TEXT NOT NULL,
+	temp      REAL,
+	hum       REAL
+);
+CREATE INDEX idx_sensor_readings ON sensor_readings(sensor_id, at);
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

@@ -25,6 +25,7 @@ type Spool struct {
 	NetGrams   float64 // filament on it when new
 	UsedGrams  float64
 	TareGrams  float64 // the empty spool, for weighing
+	Price      float64 // what it cost, in the shop's currency; 0 is not known
 	PrinterID  *int64  // loaded on
 	Location   string
 	Notes      string
@@ -54,6 +55,14 @@ func (s Spool) Family() string    { return ColourFamily(s.ColourHex) }
 func (s Spool) Ink() string       { return TextOn(s.ColourHex) }
 func (s Spool) PrinterRef() int64 { return derefID(s.PrinterID) }
 func (s Spool) CanWeigh() bool    { return s.TareGrams > 0 }
+
+// PerGram is what a gram of this spool cost, or 0 when the price is not known.
+func (s Spool) PerGram() float64 {
+	if s.Price <= 0 || s.NetGrams <= 0 {
+		return 0
+	}
+	return s.Price / s.NetGrams
+}
 
 // Info is the material this spool is, from the list the printing page uses.
 func (s Spool) Info() Material {
@@ -236,7 +245,7 @@ func PickSpool(spools []Spool, printerID int64, meta GcodeMeta) SpoolMatch {
 
 const spoolColumns = `s.id, s.material, s.brand, s.colour_name, s.colour_hex, s.diameter,
 	s.net_grams, s.used_grams, s.tare_grams, s.printer_id, s.location, s.notes, s.dried_at,
-	s.empty_at, s.created_at, COALESCE(p.name, '')`
+	s.empty_at, s.created_at, COALESCE(p.name, ''), s.price`
 
 const spoolFrom = ` FROM spools s LEFT JOIN printers p ON p.id = s.printer_id`
 
@@ -246,7 +255,7 @@ func scanSpool(row rowScanner) (Spool, error) {
 	var dried, empty, created string
 	err := row.Scan(&s.ID, &s.Material, &s.Brand, &s.ColourName, &s.ColourHex, &s.Diameter,
 		&s.NetGrams, &s.UsedGrams, &s.TareGrams, &printer, &s.Location, &s.Notes, &dried,
-		&empty, &created, &s.PrinterName)
+		&empty, &created, &s.PrinterName, &s.Price)
 	if err != nil {
 		return Spool{}, err
 	}
@@ -307,11 +316,12 @@ func (s *Store) AddSpool(sp Spool) (int64, error) {
 		return 0, err
 	}
 	res, err := s.db.Exec(`INSERT INTO spools (material, brand, colour_name, colour_hex, diameter,
-		net_grams, used_grams, tare_grams, location, notes, dried_at, empty_at, created_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,'',?)`,
+		net_grams, used_grams, tare_grams, location, notes, dried_at, empty_at, created_at, price)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,'',?,?)`,
 		sp.Material, strings.TrimSpace(sp.Brand), strings.TrimSpace(sp.ColourName), sp.ColourHex,
 		sp.Diameter, sp.NetGrams, math.Max(0, sp.UsedGrams), math.Max(0, sp.TareGrams),
-		strings.TrimSpace(sp.Location), strings.TrimSpace(sp.Notes), stamp(sp.DriedAt), nowRFC3339())
+		strings.TrimSpace(sp.Location), strings.TrimSpace(sp.Notes), stamp(sp.DriedAt), nowRFC3339(),
+		math.Max(0, sp.Price))
 	if err != nil {
 		return 0, err
 	}
@@ -323,10 +333,10 @@ func (s *Store) UpdateSpool(sp Spool) error {
 		return err
 	}
 	_, err := s.db.Exec(`UPDATE spools SET material = ?, brand = ?, colour_name = ?, colour_hex = ?,
-		diameter = ?, net_grams = ?, tare_grams = ?, location = ?, notes = ? WHERE id = ?`,
+		diameter = ?, net_grams = ?, tare_grams = ?, location = ?, notes = ?, price = ? WHERE id = ?`,
 		sp.Material, strings.TrimSpace(sp.Brand), strings.TrimSpace(sp.ColourName), sp.ColourHex,
 		sp.Diameter, sp.NetGrams, math.Max(0, sp.TareGrams), strings.TrimSpace(sp.Location),
-		strings.TrimSpace(sp.Notes), sp.ID)
+		strings.TrimSpace(sp.Notes), math.Max(0, sp.Price), sp.ID)
 	return err
 }
 

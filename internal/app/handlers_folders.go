@@ -26,10 +26,12 @@ type dashboardData struct {
 	// Only the printers that can be asked. Their status is fetched by script
 	// after the page has rendered, so a printer that is switched off never
 	// holds up the dashboard.
-	Printers []Printer
-	Progress map[int64]Progress
-	Filament FilamentSummary
-	Due      map[int64]int // maintenance due per printer
+	Printers     []Printer
+	Progress     map[int64]Progress
+	Filament     FilamentSummary
+	Due          map[int64]int // maintenance due per printer
+	Sensors      []Sensor
+	SensorAlerts []string
 }
 
 // handleDashboard is the landing page: folders first, then what changed and
@@ -71,6 +73,11 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Ideas that are worth doing something about, which is the ones you kept.
 	ideas, _ := a.store.ListIdeas("keeping")
 	var linked []Printer
+	sensors, _ := a.store.ListSensors()
+	var alerts []string
+	for _, s := range sensors {
+		alerts = append(alerts, s.Alerts()...)
+	}
 	due := map[int64]int{}
 	if printers, err := a.store.ListPrinters(); err == nil {
 		for _, p := range printers {
@@ -85,21 +92,23 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	progress, _ := a.store.ProjectProgress()
 
 	a.render(w, r, "dashboard.html", "", dashboardData{
-		Printers: linked,
-		Progress: progress,
-		Filament: SummariseFilament(spools),
-		Due:      due,
-		Setup:    !profile.Onboarded(),
-		Profile:  profile,
-		Ideas:    firstN(ideas, 3),
-		Projects: firstN(projects, 4),
-		Folders:  tree,
-		Flat:     FlattenFolders(tree),
-		Stats:    stats,
-		Recent:   firstN(recent, 12),
-		LowStock: low,
-		Tags:     firstN(tags, 24),
-		Unfiled:  stats.Unfiled,
+		Printers:     linked,
+		Progress:     progress,
+		Filament:     SummariseFilament(spools),
+		Due:          due,
+		Sensors:      sensors,
+		SensorAlerts: alerts,
+		Setup:        !profile.Onboarded(),
+		Profile:      profile,
+		Ideas:        firstN(ideas, 3),
+		Projects:     firstN(projects, 4),
+		Folders:      tree,
+		Flat:         FlattenFolders(tree),
+		Stats:        stats,
+		Recent:       firstN(recent, 12),
+		LowStock:     low,
+		Tags:         firstN(tags, 24),
+		Unfiled:      stats.Unfiled,
 	})
 }
 

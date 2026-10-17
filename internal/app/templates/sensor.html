@@ -1,0 +1,115 @@
+{{define "sensor.html"}}
+{{template "top" .}}
+{{$d := .Data}}{{$s := $d.Sensor}}
+{{$tok := "YOUR_TOKEN"}}{{if $d.Token}}{{$tok = $d.Token}}{{end}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/sensors">Sensors</a>
+  <span class="sep">/</span><span class="here">{{$s.Name}}</span></nav>
+
+<div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art $s.KindInfo.Art}}</span>
+  <h1>{{$s.Name}}</h1>
+  <div class="folder-actions"><span class="chip sm">{{$s.KindInfo.Name}}</span></div>
+</div>
+{{if $s.KindInfo.Hint}}<p class="muted page-sub">{{$s.KindInfo.Hint}}</p>{{end}}
+
+{{if $d.Token}}
+<section class="panel-block token-box">
+  <div class="section-head"><h2>Its token</h2></div>
+  <p>Put this on the board. It is shown <b>once</b> — this page will not show it again. Lose it and
+    make a new one below.</p>
+  <div class="copy-row"><code class="token" data-copy-src>{{$d.Token}}</code>
+    <button class="btn tiny" type="button" data-copy>Copy</button></div>
+</section>
+{{end}}
+
+{{if $s.HasReading}}
+<div class="tiles">
+  {{if $s.HumLabel}}<div class="tile"><b{{if $s.HumHigh}} class="warn"{{end}}>{{$s.HumLabel}}</b><span>humidity{{if $s.MaxHumidity}} · limit {{printf "%.0f" $s.MaxHumidity}}%{{end}}</span></div>{{end}}
+  {{if $s.TempLabel}}<div class="tile"><b{{if $s.TempOut}} class="warn"{{end}}>{{$s.TempLabel}}</b><span>temperature</span></div>{{end}}
+  <div class="tile"><b{{if $s.Quiet}} class="warn"{{end}}>{{since $s.LastAt}}</b><span>last reading</span></div>
+  <div class="tile"><b>{{$d.Count}}</b><span>readings kept</span></div>
+</div>
+{{range $s.Alerts}}<p class="sensor-alert">{{.}}</p>{{end}}
+
+<section class="panel-block">
+  <div class="section-head"><h2>The last week</h2></div>
+  <h3 class="chart-title">Humidity</h3>
+  <div class="chart-box">{{$d.Hum}}</div>
+  <h3 class="chart-title">Temperature</h3>
+  <div class="chart-box">{{$d.Temp}}</div>
+  <p class="muted small">The dashed line is the limit. A month of readings is kept.</p>
+</section>
+{{end}}
+
+<section class="panel-block" id="setup">
+  <div class="section-head"><h2>Set up the board</h2></div>
+  <p>Any board that can make an HTTP request works. Post a reading to</p>
+  <div class="copy-row"><code data-copy-src>{{$d.Endpoint}}</code><button class="btn tiny" type="button" data-copy>Copy</button></div>
+  <p class="muted small">with the header <code>Authorization: Bearer {{$tok}}</code> and a body like
+    <code>{"temperature": 21.4, "humidity": 18}</code>. Either value can be left out. Once a minute is plenty.</p>
+
+  <details class="snippet" open>
+    <summary><b>ESPHome</b> <span class="muted small">— add to the device's YAML; <code>temp</code> and <code>hum</code> are your sensors' ids</span></summary>
+    <pre><code>http_request:
+  verify_ssl: false
+
+interval:
+  - interval: 60s
+    then:
+      - http_request.post:
+          url: {{$d.Endpoint}}
+          request_headers:
+            Authorization: "Bearer {{$tok}}"
+            Content-Type: application/json
+          json:
+            temperature: !lambda return id(temp).state;
+            humidity: !lambda return id(hum).state;</code></pre>
+  </details>
+  <details class="snippet">
+    <summary><b>Arduino (ESP32)</b></summary>
+    <pre><code>#include &lt;WiFi.h&gt;
+#include &lt;HTTPClient.h&gt;
+
+void sendReading(float t, float h) {
+  HTTPClient http;
+  http.begin("{{$d.Endpoint}}");
+  http.addHeader("Authorization", "Bearer {{$tok}}");
+  http.addHeader("Content-Type", "application/json");
+  http.POST(String("{\"temperature\":") + t + ",\"humidity\":" + h + "}");
+  http.end();
+}</code></pre>
+  </details>
+  <details class="snippet">
+    <summary><b>Shell, to test it</b></summary>
+    <pre><code>curl -X POST {{$d.Endpoint}} \
+  -H "Authorization: Bearer {{$tok}}" \
+  -d '{"temperature": 21.4, "humidity": 18}'</code></pre>
+  </details>
+</section>
+
+<section class="panel-block">
+  <div class="section-head"><h2>Settings</h2></div>
+  <form method="post" action="/sensors/{{$s.ID}}" class="stack">
+    <div class="field-row">
+      <label>Name <input name="name" value="{{$s.Name}}" required></label>
+      <label>Kind <select name="kind">{{range $d.Kinds}}<option value="{{.Key}}"{{if eq .Key $s.Kind}} selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+      <label>Where <input name="location" value="{{$s.Location}}"></label>
+    </div>
+    <div class="field-row">
+      <label>Humidity above, % <input name="max_humidity" type="number" step="any" min="0" max="100" value="{{if $s.MaxHumidity}}{{$s.MaxHumidity}}{{end}}" placeholder="no limit"></label>
+      <label>Hotter than, °C <input name="max_temp" type="number" step="any" value="{{if $s.MaxTemp}}{{$s.MaxTemp}}{{end}}" placeholder="no limit"></label>
+      <label>Colder than, °C <input name="min_temp" type="number" step="any" value="{{if $s.MinTemp}}{{$s.MinTemp}}{{end}}" placeholder="no limit"></label>
+    </div>
+    <div class="actions"><button class="btn primary" type="submit">Save</button></div>
+  </form>
+  <div class="actions split">
+    <form method="post" action="/sensors/{{$s.ID}}/token" data-confirm="Make a new token? The board stops reporting until it has the new one.">
+      <button class="btn ghost" type="submit">New token</button></form>
+    <form method="post" action="/sensors/{{$s.ID}}/delete" data-confirm="Delete {{$s.Name}} and its readings?">
+      <button class="btn danger" type="submit">Delete sensor</button></form>
+  </div>
+</section>
+
+{{template "bottom" .}}
+{{end}}

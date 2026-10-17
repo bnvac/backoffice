@@ -1,0 +1,67 @@
+{{define "sensors.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Sensors</span></nav>
+
+<div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "sensor"}}</span>
+  <h1>Sensors</h1>
+</div>
+
+<p class="lede">Little boards around the workshop — an ESP32 with a humidity sensor in the filament
+dry box, one in the printer enclosure, one on the wall. Each posts a reading every minute or so, and
+this page says when the dry box needs fresh desiccant or the enclosure is cooking PLA.</p>
+
+{{if $d.Sensors}}
+<ul class="sensors">
+  {{range $d.Sensors}}
+  <li class="sensor{{if .Alarm}} alarm{{end}}">
+    <a class="sensor-link" href="/sensors/{{.ID}}">
+      <span class="sensor-art" aria-hidden="true">{{art .KindInfo.Art}}</span>
+      <span class="sensor-title"><b>{{.Name}}</b>
+        <span class="muted small">{{.KindInfo.Name}}{{if .Location}} · {{.Location}}{{end}}</span></span>
+    </a>
+    {{if .HasReading}}
+    <div class="sensor-now">
+      {{if .HumLabel}}<span class="big{{if .HumHigh}} warn{{end}}">{{.HumLabel}}</span>{{end}}
+      {{if .TempLabel}}<span class="big{{if .TempOut}} warn{{end}}">{{.TempLabel}}</span>{{end}}
+    </div>
+    <div class="sensor-spark">{{.Spark}}</div>
+    <p class="muted small">{{if .Quiet}}<span class="warn">quiet since {{since .LastAt}}</span>{{else}}updated {{since .LastAt}}{{end}}</p>
+    {{range .Alerts}}<p class="sensor-alert">{{.}}</p>{{end}}
+    {{else}}
+    <p class="muted small">No readings yet — <a href="/sensors/{{.ID}}#setup">set up the board</a>.</p>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="empty small"><span class="empty-art" aria-hidden="true">{{art "humidity"}}</span>No sensors yet. A £4 ESP32 and a SHT31 or BME280
+  in the dry box is the most useful one to start with.</p>
+{{end}}
+
+<section class="panel-block" id="add">
+  <div class="section-head"><h2>Add a sensor</h2></div>
+  <form method="post" action="/sensors" class="stack">
+    <fieldset class="kind-pick">
+      <legend>What does it watch?</legend>
+      {{range $i, $k := $d.Kinds}}
+      <label class="kind-opt">
+        <input type="radio" name="kind" value="{{$k.Key}}"{{if eq $i 0}} checked{{end}}>
+        <span class="kind-art" aria-hidden="true">{{art $k.Art}}</span>
+        <span><b>{{$k.Name}}</b>{{if $k.Hint}}<span class="muted small">{{$k.Hint}}</span>{{end}}</span>
+      </label>
+      {{end}}
+    </fieldset>
+    <div class="field-row">
+      <label>Name <input name="name" required placeholder="Dry box 1" autocomplete="off"></label>
+      <label>Where <input name="location" placeholder="shelf above the printer" autocomplete="off"></label>
+    </div>
+    <p class="muted small">Limits start at sensible values for the kind; change them on the sensor's page.</p>
+    <div class="actions"><button class="btn primary" type="submit">Add and get its token</button></div>
+  </form>
+</section>
+
+{{template "bottom" .}}
+{{end}}

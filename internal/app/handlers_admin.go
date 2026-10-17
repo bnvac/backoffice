@@ -139,10 +139,10 @@ func (a *App) handleRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.store.Record(a.actor(r), "restored a backup", "system", 0,
-		fmt.Sprintf("%s from schema %d, %d rows across %d tables, %d photos",
-			fh.Filename, rep.From, rep.Rows, rep.Tables, rep.Photos))
-	redirect(w, r, "/admin", fmt.Sprintf("Restored %d rows across %d tables and %d photos",
-		rep.Rows, rep.Tables, rep.Photos), "")
+		fmt.Sprintf("%s from schema %d, %d rows across %d tables, %d photos, %d files",
+			fh.Filename, rep.From, rep.Rows, rep.Tables, rep.Photos, rep.Files))
+	redirect(w, r, "/admin", fmt.Sprintf("Restored %d rows across %d tables, %d photos and %d files",
+		rep.Rows, rep.Tables, rep.Photos, rep.Files), "")
 }
 
 // handleSweep deletes photo files nothing points at any more.

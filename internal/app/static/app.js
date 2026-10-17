@@ -1013,3 +1013,39 @@ document.querySelectorAll('[data-scanner]').forEach((root) => {
     setOpen(true);
   }
 })();
+
+// Dropping files onto a project's upload box picks them, and the label says
+// what was picked, so the upload button is the only thing left to press.
+document.querySelectorAll('[data-file-drop]').forEach((box) => {
+  const input = box.querySelector('input[type=file]');
+  const label = box.querySelector('.file-drop-pick span');
+  const show = () => {
+    const n = input.files.length;
+    if (n) label.textContent = n === 1 ? input.files[0].name : n + ' files';
+  };
+  input.addEventListener('change', show);
+  ['dragenter', 'dragover'].forEach((t) => box.addEventListener(t, (e) => { e.preventDefault(); box.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((t) => box.addEventListener(t, () => box.classList.remove('over')));
+  box.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; show(); }
+  });
+});
+
+// Copy buttons: copy the code next to them and say so.
+document.querySelectorAll('[data-copy]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const src = btn.parentElement.querySelector('[data-copy-src]');
+    if (!src) return;
+    try {
+      await navigator.clipboard.writeText(src.textContent.trim());
+      const was = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = was; }, 1400);
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(src);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    }
+  });
+});

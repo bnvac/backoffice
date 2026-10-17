@@ -112,6 +112,29 @@ checksum, what it runs on, and what it draws. The page checks each one with a
 TCP connection to a port you choose (no ping, so no root) and adds up the power
 — leaving out machines with no figure rather than counting them as zero.
 
+**Project files.** Each project keeps the files the build is made of: STEP and
+Fusion files, STLs and 3MFs, sliced G-code, KiCad boards and Gerbers, the
+firmware image, the datasheet. Uploading the same name again makes the next
+revision and keeps the old ones, with a note on what changed. G-code on a
+project has a **Print** button that sends it to a printer the same way the
+Printing page does, and tags the job with the project. Uploaded files are
+served sandboxed, so an HTML file can't run as a page of the app.
+
+**What a build costs.** Parts at their recorded price, filament by the gram from
+what each spool cost, and printer time from the slicer's estimate. Parts with
+no price are named rather than counted as free, and prices in different
+currencies are shown side by side, never added together.
+
+**Sensors.** An ESP32 with a humidity sensor in the filament dry box, one in
+the printer enclosure, one on the workshop wall. Each posts
+`{"temperature": 21.4, "humidity": 18}` to `/api/sensors/reading` with its own
+token. Boards can't sign in, so that one endpoint sits outside sign-in, and the
+token only lets a board add readings to itself; only a hash of the token is
+stored. The page draws the last week, keeps a month, and the dashboard says
+when the dry box needs fresh desiccant, the enclosure is hot enough to soften
+PLA, or a board has gone quiet. ESPHome, Arduino and curl snippets are on each
+sensor's page.
+
 ![Looking for a case](docs/cases.png)
 
 ## The workshop, and the idea board
@@ -237,6 +260,9 @@ About 19k lines of Go and 6.7k of tests. Two real dependencies:
 `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0` works) and `golang.org/x/image`
 for the formats the standard library won't decode.
 
+The pictures are Microsoft's [Fluent Emoji](https://github.com/microsoft/fluentui-emoji)
+(flat colour style, MIT licence — the notice is in `internal/app/static/art`).
+
 Some things I wrote myself rather than pulling in a library:
 
 - **KiCad footprints.** An s-expression parser and an SVG renderer, so a
@@ -267,7 +293,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 300 tests
+go test ./...          # 312 tests
 go test -race ./...
 go vet ./...
 ```

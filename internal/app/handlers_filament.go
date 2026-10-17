@@ -140,6 +140,7 @@ func spoolFromForm(r *http.Request) Spool {
 		Diameter:   num("diameter", 1.75),
 		NetGrams:   num("net_grams", 1000),
 		TareGrams:  num("tare_grams", 0),
+		Price:      num("price", 0),
 		Location:   r.FormValue("location"),
 		Notes:      r.FormValue("notes"),
 	}

@@ -85,7 +85,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, name string, title 
 		Data: data,
 		Neb:  a.assistantOn(),
 
-		WhoAmI:        a.whoAmI(r),
+		WhoAmI:         a.whoAmI(r),
 		Others:         a.otherAccounts(me),
 		CanManageUsers: me == nil || me.Admin,
 	}

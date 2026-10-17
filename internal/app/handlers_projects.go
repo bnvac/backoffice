@@ -51,6 +51,12 @@ type projectData struct {
 	Progress    Progress
 	Statuses    []string
 	Assemblies  []Project // other projects that could go inside this one
+
+	Files    []FileGroup
+	Printers []Printer // for sending a project's G-code
+	Spools   []Spool
+	Jobs     []PrintJob // prints sent for this project
+	Cost     BuildCost
 }
 
 func (a *App) handleProject(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +113,29 @@ func (a *App) handleProject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	files, err := a.store.ProjectFiles(id)
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	printers, _ := a.store.ListPrinters()
+	jobs, _ := a.store.PrintJobs(JobFilter{Project: id}, 200)
+	spools, _ := a.store.ListSpools(true)
+	byID := map[int64]Spool{}
+	var open []Spool
+	for _, sp := range spools {
+		byID[sp.ID] = sp
+		if !sp.Empty() {
+			open = append(open, sp)
+		}
+	}
+
 	a.render(w, r, "project.html", p.Name, projectData{
+		Files:       GroupFiles(files),
+		Printers:    printers,
+		Spools:      open,
+		Jobs:        jobs,
+		Cost:        CostOf(p, jobs, byID),
 		Project:     p,
 		Suggestions: suggestions,
 		AllItems:    all,

@@ -43,6 +43,10 @@ func newTestApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatalf("NewBlobs: %v", err)
 	}
+	files, err := NewBlobs(filepath.Join(dir, "files"), maxProjectFile)
+	if err != nil {
+		t.Fatalf("NewBlobs: %v", err)
+	}
 	store := &Store{db: db}
 	auth, err := NewAuth("", filepath.Join(dir, "session.key"), store)
 	if err != nil {
@@ -54,6 +58,7 @@ func newTestApp(t *testing.T) *App {
 		photos:   photos,
 		gcode:    gcode,
 		firmware: firmware,
+		files:    files,
 		tmpl:     mustTemplates(),
 		auth:     auth,
 		started:  time.Now(),

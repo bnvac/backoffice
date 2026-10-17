@@ -14,6 +14,7 @@ type PrintJob struct {
 	ID        int64
 	PrinterID int64
 	ItemID    *int64 // the part this was printed for, if any
+	ProjectID *int64 // the build it was printed for, if any
 	Name      string // the file name as sliced, which is what the printer shows
 	Blob      string // the stored copy
 	SHA256    string
@@ -65,10 +66,10 @@ func (j PrintJob) ItemRef() int64 {
 
 func (s *Store) AddPrintJob(j PrintJob) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO print_jobs (printer_id, item_id, name, blob, sha256,
-		size, started, error, sent_at, spool_id, grams, est_seconds)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+		size, started, error, sent_at, spool_id, grams, est_seconds, project_id)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		j.PrinterID, j.ItemID, j.Name, j.Blob, j.SHA256, j.Size, j.Started, j.Error, nowRFC3339(),
-		j.SpoolID, j.Grams, j.EstSeconds)
+		j.SpoolID, j.Grams, j.EstSeconds, j.ProjectID)
 	if err != nil {
 		return 0, err
 	}
@@ -76,7 +77,7 @@ func (s *Store) AddPrintJob(j PrintJob) (int64, error) {
 }
 
 // JobFilter narrows the history. Zero fields do not filter.
-type JobFilter struct{ Item, Printer, Spool int64 }
+type JobFilter struct{ Item, Printer, Spool, Project int64 }
 
 // RecentPrintJobs is the history, newest first, across every printer or for
 // one item (pass itemID 0 for all).
@@ -88,7 +89,7 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 	q := `SELECT j.id, j.printer_id, j.item_id, j.name, j.blob, j.sha256, j.size, j.started,
 		j.error, j.sent_at, p.name, COALESCE(i.name, ''), j.spool_id, j.grams, j.est_seconds,
 		j.returned_at, COALESCE(sp.colour_name, ''), COALESCE(sp.material, ''),
-		COALESCE(sp.colour_hex, '')
+		COALESCE(sp.colour_hex, ''), j.project_id
 		FROM print_jobs j
 		JOIN printers p ON p.id = j.printer_id
 		LEFT JOIN items i ON i.id = j.item_id
@@ -103,6 +104,9 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 	}
 	if f.Spool > 0 {
 		where, args = append(where, "j.spool_id = ?"), append(args, f.Spool)
+	}
+	if f.Project > 0 {
+		where, args = append(where, "j.project_id = ?"), append(args, f.Project)
 	}
 	if len(where) > 0 {
 		q += " WHERE " + strings.Join(where, " AND ")
@@ -119,12 +123,16 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 	var out []PrintJob
 	for rows.Next() {
 		var j PrintJob
-		var item, spool sql.NullInt64
+		var item, spool, project sql.NullInt64
 		var sent, returned, colourName, material string
 		if err := rows.Scan(&j.ID, &j.PrinterID, &item, &j.Name, &j.Blob, &j.SHA256, &j.Size,
 			&j.Started, &j.Error, &sent, &j.Printer, &j.ItemName, &spool, &j.Grams,
-			&j.EstSeconds, &returned, &colourName, &material, &j.SpoolHex); err != nil {
+			&j.EstSeconds, &returned, &colourName, &material, &j.SpoolHex, &project); err != nil {
 			return nil, err
+		}
+		if project.Valid {
+			id := project.Int64
+			j.ProjectID = &id
 		}
 		if material != "" {
 			// Named the same way as everywhere else, rather than rebuilt in SQL.
@@ -147,14 +155,18 @@ func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 
 func (s *Store) GetPrintJob(id int64) (PrintJob, error) {
 	var j PrintJob
-	var item, spool sql.NullInt64
+	var item, spool, project sql.NullInt64
 	var sent, returned string
 	err := s.db.QueryRow(`SELECT id, printer_id, item_id, name, blob, sha256, size, started,
-		error, sent_at, spool_id, grams, est_seconds, returned_at FROM print_jobs WHERE id = ?`, id).
+		error, sent_at, spool_id, grams, est_seconds, returned_at, project_id FROM print_jobs WHERE id = ?`, id).
 		Scan(&j.ID, &j.PrinterID, &item, &j.Name, &j.Blob, &j.SHA256, &j.Size, &j.Started,
-			&j.Error, &sent, &spool, &j.Grams, &j.EstSeconds, &returned)
+			&j.Error, &sent, &spool, &j.Grams, &j.EstSeconds, &returned, &project)
 	if err != nil {
 		return PrintJob{}, err
+	}
+	if project.Valid {
+		v := project.Int64
+		j.ProjectID = &v
 	}
 	if item.Valid {
 		v := item.Int64

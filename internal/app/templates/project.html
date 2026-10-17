@@ -42,6 +42,8 @@
   <div class="tile"><b>{{len $p.Parts}}</b><span>parts listed</span></div>
   <div class="tile"><b{{if $p.Shortfall}} class="warn"{{end}}>{{len $p.Shortfall}}</b><span>still needed</span></div>
   {{if $p.EstimatedCost}}<div class="tile"><b>{{money $p.EstimatedCost}}</b><span>to buy (est.)</span></div>{{end}}
+  {{if $d.Cost.HasTotal}}<a class="tile" href="#cost"><b>{{$d.Cost.TotalLabel}}</b><span>to build</span></a>{{end}}
+  {{if $d.Files}}<a class="tile" href="#files"><b>{{len $d.Files}}</b><span>file{{if ne (len $d.Files) 1}}s{{end}}</span></a>{{end}}
   <div class="tile"><b>{{$p.Status}}</b><span>status</span></div>
   {{if and $pins.Controller $pins.Capacity}}
   <div class="tile"><b{{if $pins.Over}} class="warn"{{end}}>{{$pins.Total}} / {{$pins.Capacity}}</b><span>pins used</span></div>
@@ -144,6 +146,95 @@ flash MicroPython — or paste a whole plan, one per line"></textarea>
     <button class="btn primary" type="submit">Add</button>
   </form>
 </section>
+
+{{/* The files the build is made of. Same name again is the next revision. */}}
+<section class="panel-block" id="files">
+  <div class="section-head"><h2>Files</h2>
+    <span class="muted small">CAD, models, G-code, PCB, firmware — upload the same name again for a new revision</span></div>
+  <form class="file-drop" method="post" action="/projects/{{$p.ID}}/files" enctype="multipart/form-data" data-file-drop>
+    <span class="file-drop-art" aria-hidden="true">{{art "toolbox"}}</span>
+    <label class="file-drop-pick">
+      <input type="file" name="files" multiple required>
+      <span><b>Choose files</b> or drop them here</span>
+    </label>
+    <input name="note" placeholder="What changed? (optional)" autocomplete="off">
+    <button class="btn primary" type="submit">Upload</button>
+  </form>
+
+  {{if $d.Files}}
+  <ul class="files">
+    {{range $g := $d.Files}}{{$f := $g.Latest}}
+    <li class="file">
+      <span class="file-art" aria-hidden="true">{{art $f.KindInfo.Art}}</span>
+      <div class="file-main">
+        <a class="file-name" href="/files/{{$f.ID}}">{{$f.Name}}</a>
+        <span class="muted small">{{$f.KindInfo.Label}} · {{$f.SizeLabel}} · rev {{$f.Rev}} · {{since $f.CreatedAt}}{{if $f.Author}} · {{$f.Author}}{{end}}</span>
+        {{if $f.Note}}<span class="file-note">{{$f.Note}}</span>{{end}}
+        {{if $g.Older}}
+        <details class="file-revs">
+          <summary class="muted small">{{len $g.Older}} earlier revision{{if gt (len $g.Older) 1}}s{{end}}</summary>
+          <ul>
+            {{range $g.Older}}
+            <li><a href="/files/{{.ID}}">rev {{.Rev}}</a> <span class="muted small">{{.SizeLabel}} · {{since .CreatedAt}}{{if .Note}} — {{.Note}}{{end}}</span>
+              <form method="post" action="/files/{{.ID}}/delete" data-confirm="Delete revision {{.Rev}} of {{.Name}}?">
+                <button class="btn tiny ghost" type="submit" aria-label="Delete revision {{.Rev}}">×</button></form></li>
+            {{end}}
+          </ul>
+        </details>
+        {{end}}
+      </div>
+      <div class="file-actions">
+        {{if and $f.Printable $d.Printers}}
+        <details class="inline-form">
+          <summary class="btn tiny primary">Print</summary>
+          <div class="pop">
+          <form method="post" action="/files/{{$f.ID}}/print" class="stack">
+            <label>Printer
+              <select name="printer_id">{{range $d.Printers}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+            <label>Filament
+              <select name="spool_id">
+                <option value="">Work it out</option>
+                {{range $d.Spools}}<option value="{{.ID}}">{{.Label}} — {{printf "%.0f" .Remaining}} g</option>{{end}}
+                <option value="none">Don't count this one</option>
+              </select></label>
+            <label class="inline-check"><input type="checkbox" name="start"> Start as soon as it arrives</label>
+            <button class="btn primary" type="submit">Send to printer</button>
+          </form>
+          </div>
+        </details>
+        {{end}}
+        <a class="btn tiny ghost" href="/files/{{$f.ID}}" download>Download</a>
+        <form method="post" action="/files/{{$f.ID}}/delete" data-confirm="Delete {{$f.Name}} rev {{$f.Rev}}?{{if $g.Older}} The earlier revision becomes the current one.{{end}}">
+          <button class="btn tiny ghost danger" type="submit" aria-label="Delete {{$f.Name}}">×</button>
+        </form>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">Nothing here yet. Put the STEP, the STL, the sliced G-code and the firmware here and the
+    whole build can be made again from this page next year.</p>
+  {{end}}
+</section>
+
+{{/* What it cost: parts at what they were bought for, filament by the gram. */}}
+{{with $d.Cost}}{{if .Any}}
+<section class="panel-block" id="cost">
+  <div class="section-head"><h2>What it costs</h2>
+    {{if .HasTotal}}<b class="cost-total">{{.TotalLabel}}</b>{{end}}</div>
+  <dl class="cost">
+    {{if .Parts}}<div><dt>Parts</dt><dd>{{range $i, $m := .Parts}}{{if $i}} + {{end}}{{$m}}{{end}}
+      <span class="muted small">{{.PartsPriced}} line{{if ne .PartsPriced 1}}s{{end}} priced</span></dd></div>{{end}}
+    {{if .Grams}}<div><dt>Filament</dt><dd>{{if .FilamentCost}}{{.FilamentLabel}} · {{end}}{{printf "%.0f" .Grams}} g
+      <span class="muted small">over {{.Prints}} print{{if ne .Prints 1}}s{{end}}</span></dd></div>{{end}}
+    {{if .PrintTime}}<div><dt>Printer time</dt><dd>{{.PrintTime}}</dd></div>{{end}}
+  </dl>
+  {{if .Unpriced}}<p class="muted small">No price yet for {{range $i, $n := .Unpriced}}{{if $i}}, {{end}}{{$n}}{{end}} —
+    add one on the part's page and it counts here.</p>{{end}}
+  {{if .UnpricedGrams}}<p class="muted small">{{printf "%.0f" .UnpricedGrams}} g came off spools with no price —
+    set what you paid on the spool and it counts too.</p>{{end}}
+</section>
+{{end}}{{end}}
 
 {{if $p.Shortfall}}
 <section class="panel-block">
