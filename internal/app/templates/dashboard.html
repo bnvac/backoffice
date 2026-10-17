@@ -62,6 +62,10 @@
   <div class="tile"><b>{{$d.Stats.Folders}}</b><span>folders</span></div>
   <a class="tile" href="/tags"><b>{{$d.Stats.Tags}}</b><span>tags</span></a>
   <div class="tile"><b>{{$d.Stats.ValueDisplay}}</b><span>shelf value</span></div>
+  {{if $d.Filament.Spools}}
+  <a class="tile" href="/filament"><b{{if $d.Filament.Low}} class="warn"{{end}}>{{$d.Filament.Kilos}}</b>
+    <span>filament{{if $d.Filament.Low}}, {{$d.Filament.Low}} running low{{end}}</span></a>
+  {{end}}
 </div>
 
 {{with $d.Printers}}
@@ -73,6 +77,7 @@
       <b>{{.Name}}</b>
       <span class="muted small" data-headline>—</span>
     </a>
+    {{$pid := .ID}}{{with index $d.Due .ID}}<a class="chip xs bad strip-due" href="/printing/printers/{{$pid}}#maintenance">{{.}} maintenance due</a>{{end}}
     <span class="budget-bar print-bar" hidden><span style="width:0"></span></span>
   </li>
   {{end}}

@@ -1,0 +1,84 @@
+{{define "filament.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/printing">Printing</a><span class="sep">/</span><span class="here">Filament</span></nav>
+
+<div class="folder-head">
+  <h1>Filament</h1>
+  <div class="folder-actions">
+    <a class="chip sm" href="/labels/spools">Spool labels</a>
+    <a class="btn primary" href="#add">+ Add spools</a>
+  </div>
+</div>
+
+<p class="lede">Counted in grams. Every print sent from here takes what the slicer said it
+would use, and weighing a spool on a kitchen scale corrects the rest.</p>
+
+{{if $d.All}}
+<div class="tiles">
+  <div class="tile"><b>{{$d.Summary.Kilos}}</b><span>on the shelf</span></div>
+  <div class="tile"><b>{{$d.Summary.Spools}}</b><span>spools</span></div>
+  <a class="tile" href="#spools"><b{{if $d.Summary.Low}} class="warn"{{end}}>{{$d.Summary.Low}}</b><span>under 150 g</span></a>
+</div>
+
+<div class="filters">
+  <div class="filter-row colour-row" role="group" aria-label="Filter by colour">
+    <span class="filter-label">Colour</span>
+    {{range $d.Families}}
+    <a class="chip colour-chip{{if .On}} on{{end}}" href="{{$d.FilterURL "colour" .Key}}"
+       {{if .On}}aria-current="true"{{end}}>
+      <span class="swatch sm" style="--c: {{.Swatch}}" aria-hidden="true"></span>{{.Key}} <span class="n">{{.Count}}</span>
+    </a>
+    {{end}}
+  </div>
+  <div class="filter-row" role="group" aria-label="Filter by material">
+    <span class="filter-label">Material</span>
+    {{range $d.MatChips}}
+    <a class="chip{{if .On}} on{{end}}" href="{{$d.FilterURL "material" .Key}}">{{.Name}} <span class="n">{{.Count}}</span></a>
+    {{end}}
+    <a class="chip sm{{if $d.ShowEmpty}} on{{end}}" href="{{$d.FilterURL "empty" "1"}}">used up too</a>
+  </div>
+</div>
+
+{{if $d.Spools}}
+<ul class="spools" id="spools">
+  {{range $d.Spools}}{{template "spool-card" .}}{{end}}
+</ul>
+{{else}}
+<p class="empty small">No spools match that. <a href="/filament">Show them all</a>.</p>
+{{end}}
+{{else}}
+<p class="empty small">No filament yet. Add what is on the shelf below — a box of four
+identical spools is one go.</p>
+{{end}}
+
+<details class="panel" id="add" {{if not $d.All}}open{{end}}>
+  <summary class="btn">Add spools</summary>
+  <form method="post" action="/filament" class="stack">
+    <div class="field-row">
+      <label>Material
+        <select name="material" required>
+          {{range $d.Materials}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      <label>Brand <input name="brand" autocomplete="off" placeholder="Elegoo, Polymaker, eSun…"></label>
+      <label>How many <input name="count" type="number" min="1" max="20" value="1"></label>
+    </div>
+    {{template "colour-picker" dict "Presets" $d.Presets "Current" "" "Name" ""}}
+    <div class="field-row">
+      <label>Filament when new, g <input name="net_grams" type="number" min="1" step="any" value="1000"></label>
+      <label>Empty spool weighs, g <span class="muted">— for the scale; often printed on the side</span>
+        <input name="tare_grams" type="number" min="0" step="any" placeholder="e.g. 160 cardboard, 230 plastic"></label>
+      <label>Diameter, mm <input name="diameter" type="number" min="1" step="any" value="1.75"></label>
+    </div>
+    <div class="field-row">
+      <label>Where it lives <input name="location" autocomplete="off" placeholder="dry box 2"></label>
+      <label>Notes <input name="notes" autocomplete="off"></label>
+    </div>
+    <div class="actions"><button class="btn primary" type="submit">Add</button></div>
+  </form>
+</details>
+
+{{template "bottom" .}}
+{{end}}

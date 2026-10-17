@@ -275,6 +275,22 @@ func (a *App) routes() http.Handler {
 	protected.HandleFunc("POST /printing/printers/{id}/send", a.handleSendGcode)
 	protected.HandleFunc("POST /printing/jobs/{id}/resend", a.handleResendJob)
 	protected.HandleFunc("GET /printing/jobs/{id}/file", a.handleJobFile)
+	protected.HandleFunc("POST /printing/jobs/{id}/return", a.handleReturnFilament)
+
+	// One printer: maintenance by print hours, and the spares kept for it.
+	protected.HandleFunc("GET /printing/printers/{id}", a.handlePrinter)
+	protected.HandleFunc("POST /printing/printers/{id}/maintenance", a.handleAddMaint)
+	protected.HandleFunc("POST /printing/printers/{id}/hours", a.handleBaseHours)
+	protected.HandleFunc("POST /printing/printers/{id}/spares", a.handleSpare)
+	protected.HandleFunc("POST /maintenance/{id}/done", a.handleDoneMaint)
+	protected.HandleFunc("POST /maintenance/{id}/delete", a.handleDeleteMaint)
+
+	// Filament, in grams, by colour.
+	protected.HandleFunc("GET /filament", a.handleFilament)
+	protected.HandleFunc("POST /filament", a.handleAddSpool)
+	protected.HandleFunc("GET /filament/{id}", a.handleSpool)
+	protected.HandleFunc("POST /filament/{id}", a.handleUpdateSpool)
+	protected.HandleFunc("POST /filament/{id}/{action}", a.handleSpoolAction)
 
 	// What is on each board. Recording, not flashing: the board is plugged
 	// into the machine you are sitting at, not this one.
@@ -286,6 +302,7 @@ func (a *App) routes() http.Handler {
 
 	// The shelf, switched on.
 	protected.HandleFunc("GET /machines", a.handleMachines)
+	protected.HandleFunc("GET /machines/{id}", a.handleMachine)
 	protected.HandleFunc("POST /machines", a.handleAddMachine)
 	protected.HandleFunc("POST /machines/{id}", a.handleUpdateMachine)
 	protected.HandleFunc("POST /machines/{id}/delete", a.handleDeleteMachine)
@@ -329,6 +346,8 @@ func (a *App) routes() http.Handler {
 
 	// Labels: a QR code opens the item on a phone, a barcode feeds a scanner.
 	protected.HandleFunc("GET /labels", a.handleLabels)
+	protected.HandleFunc("GET /labels/{what}", a.handleThingLabels)
+	protected.HandleFunc("GET /qr/{kind}/{id}", a.handleThingQR)
 	protected.HandleFunc("GET /items/{id}/qr.png", a.handleItemQR)
 	protected.HandleFunc("GET /items/{id}/barcode.png", a.handleItemBarcode)
 

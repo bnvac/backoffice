@@ -28,6 +28,8 @@ type dashboardData struct {
 	// holds up the dashboard.
 	Printers []Printer
 	Progress map[int64]Progress
+	Filament FilamentSummary
+	Due      map[int64]int // maintenance due per printer
 }
 
 // handleDashboard is the landing page: folders first, then what changed and
@@ -69,19 +71,24 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Ideas that are worth doing something about, which is the ones you kept.
 	ideas, _ := a.store.ListIdeas("keeping")
 	var linked []Printer
+	due := map[int64]int{}
 	if printers, err := a.store.ListPrinters(); err == nil {
 		for _, p := range printers {
 			if p.Connected() {
 				linked = append(linked, p)
 			}
 		}
+		due = a.store.MaintDue(printers)
 	}
+	spools, _ := a.store.ListSpools(false)
 
 	progress, _ := a.store.ProjectProgress()
 
 	a.render(w, r, "dashboard.html", "", dashboardData{
 		Printers: linked,
 		Progress: progress,
+		Filament: SummariseFilament(spools),
+		Due:      due,
 		Setup:    !profile.Onboarded(),
 		Profile:  profile,
 		Ideas:    firstN(ideas, 3),

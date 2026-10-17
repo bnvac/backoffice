@@ -220,3 +220,123 @@ func (q Query) LabelsURL(code string) string {
 }
 
 var _ = url.Values{}
+
+// --- labels for things that are not parts --------------------------------------
+
+// The same QR idea, for the things around the parts: a board with firmware on
+// it, a machine in the cupboard, a spool, a printer. Scanning one opens its
+// page, which is where the useful part is — the reflash command, the address,
+// the scale form, the maintenance list.
+
+// qrTargets maps a kind of thing to the page its code opens.
+var qrTargets = map[string]string{
+	"board":   "/firmware/%d",
+	"machine": "/machines/%d",
+	"spool":   "/filament/%d",
+	"printer": "/printing/printers/%d",
+}
+
+func (a *App) handleThingQR(w http.ResponseWriter, r *http.Request) {
+	format, ok := qrTargets[r.PathValue("kind")]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	code, err := qr.Encode(a.BaseURL(r)+fmt.Sprintf(format, id), qr.M, qr.Auto)
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	a.writeBarcode(w, code, labelQRSize, labelQRSize)
+}
+
+// thingLabel is one label on a sheet of non-part things.
+type thingLabel struct {
+	QR     string
+	Title  string
+	Lines  []string
+	Swatch string // spools get their colour printed on the label
+	Ink    string
+}
+
+var thingKinds = []struct{ Key, Label string }{
+	{"spools", "Spools"}, {"boards", "Boards"}, {"machines", "Machines"}, {"printers", "Printers"},
+}
+
+func (a *App) handleThingLabels(w http.ResponseWriter, r *http.Request) {
+	what := r.PathValue("what")
+	var labels []thingLabel
+	switch what {
+	case "spools":
+		spools, _ := a.store.ListSpools(false)
+		for _, s := range spools {
+			m := s.Info()
+			lines := []string{fmt.Sprintf("%s · %d °C nozzle · %d °C bed", m.Name, m.Hotend, m.Bed)}
+			if s.Brand != "" {
+				lines = append(lines, s.Brand)
+			}
+			// The empty weight is the number you need at the scale and the one
+			// nobody remembers, so it goes on the label.
+			if s.TareGrams > 0 {
+				lines = append(lines, fmt.Sprintf("%.0f g net · empty spool %.0f g", s.NetGrams, s.TareGrams))
+			}
+			labels = append(labels, thingLabel{QR: fmt.Sprintf("/qr/spool/%d", s.ID),
+				Title: s.Label(), Lines: lines, Swatch: s.Swatch(), Ink: s.Ink()})
+		}
+	case "boards":
+		flashes, _ := a.store.ListFlashes(0, 0)
+		for _, f := range flashes {
+			if !f.Current {
+				continue
+			}
+			title := f.Board()
+			if f.Unit != "" {
+				title += " — " + f.Unit
+			}
+			line := f.Firmware
+			if f.Version != "" {
+				line += " " + f.Version
+			}
+			labels = append(labels, thingLabel{QR: fmt.Sprintf("/qr/board/%d", f.ID),
+				Title: title, Lines: []string{line, "flashed " + f.FlashedDate()}})
+		}
+	case "machines":
+		machines, _ := a.store.ListMachines()
+		for _, m := range machines {
+			var lines []string
+			for _, s := range []string{m.Role, m.Address, m.OS} {
+				if s != "" {
+					lines = append(lines, s)
+				}
+			}
+			labels = append(labels, thingLabel{QR: fmt.Sprintf("/qr/machine/%d", m.ID),
+				Title: m.Name, Lines: lines})
+		}
+	case "printers":
+		printers, _ := a.store.ListPrinters()
+		for _, p := range printers {
+			var lines []string
+			if p.NozzleLabel() != "" {
+				lines = append(lines, p.NozzleLabel())
+			}
+			if p.Bed.Known() {
+				lines = append(lines, p.Bed.String())
+			}
+			labels = append(labels, thingLabel{QR: fmt.Sprintf("/qr/printer/%d", p.ID),
+				Title: p.Name, Lines: lines})
+		}
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	a.render(w, r, "thing-labels.html", "Labels", struct {
+		What    string
+		Kinds   []struct{ Key, Label string }
+		Labels  []thingLabel
+		BaseURL string
+	}{what, thingKinds, labels, a.BaseURL(r)})
+}

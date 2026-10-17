@@ -36,6 +36,11 @@ type Printer struct {
 	LinkURL  string
 	LinkKey  string
 
+	// Print hours: what it had done before it was added, and the printer's
+	// own lifetime counter when it reports one.
+	BaseHours       float64
+	ReportedSeconds float64
+
 	CreatedAt time.Time
 }
 
@@ -505,14 +510,15 @@ func PresetByName(name string) (Printer, bool) {
 // printerColumns and scanPrinter are shared by every read, so a new column is
 // added in one place rather than in four queries that can drift apart.
 const printerColumns = `id, name, bed_x, bed_y, bed_z, nozzle, nozzle_kind, max_hotend,
-	max_bed, enclosed, direct_drive, dryer, notes, link_kind, link_url, link_key, created_at`
+	max_bed, enclosed, direct_drive, dryer, notes, link_kind, link_url, link_key,
+	base_hours, reported_seconds, created_at`
 
 func scanPrinter(row rowScanner) (Printer, error) {
 	var p Printer
 	var created string
 	err := row.Scan(&p.ID, &p.Name, &p.Bed.X, &p.Bed.Y, &p.Bed.Z, &p.Nozzle, &p.NozzleKind,
 		&p.MaxHotend, &p.MaxBed, &p.Enclosed, &p.DirectDrive, &p.Dryer, &p.Notes,
-		&p.LinkKind, &p.LinkURL, &p.LinkKey, &created)
+		&p.LinkKind, &p.LinkURL, &p.LinkKey, &p.BaseHours, &p.ReportedSeconds, &created)
 	if err != nil {
 		return Printer{}, err
 	}

@@ -1383,6 +1383,125 @@ input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-s
 .reach.up { background: var(--ok); border-color: var(--ok); }
 .reach.down { border-color: var(--danger); }
 
+/* --- filament ---------------------------------------------------------------- */
+
+/* A swatch is a filament colour, never a theme colour, so it sets its own
+   ring: a hairline that shows on black filament in dark mode and on white
+   filament in light mode alike. */
+.swatch {
+  display: inline-block; width: 18px; height: 18px; border-radius: 999px; flex: none;
+  background: var(--c, #999); vertical-align: middle;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / .45);
+}
+.swatch.sm { width: 12px; height: 12px; }
+.swatch.xs { width: 9px; height: 9px; margin-right: 3px; }
+
+/* The reel: the flange is the spool, the inner disc is the filament left on
+   it, sized by how much remains. Drawn rather than photographed because the
+   colour is the whole point and every photo of a spool is the wrong one. */
+.reel {
+  position: relative; display: grid; place-items: center; flex: none;
+  width: 64px; height: 64px; border-radius: 999px;
+  background: radial-gradient(circle, var(--panel) 0 17%, var(--panel-2) 18% 100%);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.reel-wound {
+  --fill: 100%;
+  width: calc(36% + 0.62 * var(--fill)); aspect-ratio: 1; border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--panel) 0 26%, transparent 27%),
+    repeating-radial-gradient(circle, var(--c) 0 2px, color-mix(in srgb, var(--c) 82%, black) 2px 3px);
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / .35);
+}
+.reel.big { width: 132px; height: 132px; }
+
+.spools { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.spool-card { display: flex; gap: 12px; align-items: flex-start; padding: 11px 12px;
+  background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
+.spool-card.used-up { opacity: .55; }
+.spool-card:hover { box-shadow: var(--shadow-lift); }
+.reel-link { line-height: 0; text-decoration: none; }
+.spool-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.spool-name { font-weight: 560; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.spool-bar { height: 6px; margin: 4px 0 1px; }
+.spool-bar > span { background: var(--text); }
+.spool-bar.over > span { background: var(--danger); }
+.spool-left { font-size: 13px; font-variant-numeric: tabular-nums; }
+.spool-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip.on-printer { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.dry-note { color: #d79a28; }
+
+.colour-chip { gap: 6px; text-transform: capitalize; }
+
+/* Colour picker: real radio buttons under round swatches, so it works with a
+   keyboard and with script off. */
+.swatches { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.swatch-opt { position: relative; display: inline-flex; cursor: pointer; }
+.swatch-opt input[type=radio] { position: absolute; opacity: 0; width: 0; height: 0; }
+.swatch-opt .swatch { width: 28px; height: 28px; }
+.swatch-opt input:checked + .swatch { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text); }
+.swatch-opt input:focus-visible + .swatch { outline: 2px solid var(--accent); outline-offset: 3px; }
+.swatch-opt.custom input[type=color] {
+  width: 34px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px;
+  background: none; cursor: pointer;
+}
+.swatch-opt.custom:has(input[type=radio]:checked) input[type=color] { box-shadow: 0 0 0 2px var(--text); }
+
+/* Choosing the spool for a print: a list of colours, picked by colour. */
+.spool-pick { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px 10px; margin: 0; }
+.spool-pick legend { font-size: 13px; padding: 0 5px; }
+.spool-opt { display: flex; align-items: center; gap: 8px; padding: 4px 2px; cursor: pointer; font-size: 13.5px; }
+.stack label.spool-opt { flex-direction: row; align-items: center; }
+.spool-opt input { flex: none; width: auto; margin: 0; }
+.gcode-preview { margin: 0; color: var(--text); }
+
+.loaded-line { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 13.5px; margin: 6px 0 2px; }
+.loaded-line a { color: var(--text); }
+
+.spool-hero { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; margin: 4px 0 18px; }
+.spool-hero-body { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 6px; }
+.spool-hero h1 { margin: 0; }
+.spool-big-left { font-size: 15px; font-variant-numeric: tabular-nums; }
+.spool-big-left b { font-size: 26px; font-weight: 650; }
+.spool-actions { display: flex; flex-direction: column; gap: 14px; }
+.weigh { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.weigh label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.weigh input { width: 170px; padding: 8px 11px; font: inherit; background: var(--panel-2);
+  color: var(--text); border: 1px solid var(--line); border-radius: 9px; }
+.weigh p { flex-basis: 100%; margin: 0; }
+.spool-buttons { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.spool-buttons form { margin: 0; }
+.inline-form-row { display: flex; gap: 7px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0 0; }
+.inline-form-row select, .inline-form-row input {
+  padding: 6px 9px; font: inherit; font-size: 13.5px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; max-width: 280px;
+}
+.inline-form-row label { display: flex; flex-direction: column; gap: 3px; }
+
+/* Labels: a spool's label carries its colour as a band, so the right label
+   goes on the right spool without reading it. */
+.label-swatch { display: block; height: 7px; border-radius: 3px; background: var(--c); margin-bottom: 3px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .2); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* --- maintenance --------------------------------------------------------------- */
+
+.maint { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 5px; }
+.maint-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  border-left: 3px solid var(--line); }
+.maint-row.due { border-left-color: var(--danger); }
+.maint-row.soon { border-left-color: #d79a28; }
+.maint-row form { margin: 0; }
+.maint-body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 220px; }
+.maint-when { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.maint-row.due .maint-when { color: var(--danger); font-weight: 600; }
+.maint-row.soon .maint-when { color: #d79a28; }
+.state-word { font-size: 16px; }
+.printer-name { color: var(--text); text-decoration: none; }
+a.printer-name:hover { text-decoration: underline; }
+.strip-due { margin-left: 6px; }
+
 /* --- the account menu ------------------------------------------------------ */
 
 .avatar {

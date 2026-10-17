@@ -1,0 +1,137 @@
+{{define "printer.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+{{$c := $d.Card}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/printing">Printing</a><span class="sep">/</span><span class="here">{{$c.Name}}</span></nav>
+
+<div class="folder-head">
+  <h1>{{$c.Name}}</h1>
+  <div class="folder-actions">
+    <a class="chip sm" href="/qr/printer/{{$c.ID}}" target="_blank" rel="noopener">QR code</a>
+    <a class="btn tiny" href="/printing?edit={{$c.ID}}#edit">Edit</a>
+  </div>
+</div>
+
+<div class="tiles">
+  <div class="tile"><b>{{printf "%.0f" $d.Hours.Total}} h</b><span>{{if eq $d.Hours.Source "printer"}}printed, as it counts it{{else}}printed, estimated{{end}}</span></div>
+  <a class="tile" href="#maintenance"><b{{if $d.Due}} class="warn"{{end}}>{{$d.Due}}</b><span>maintenance due</span></a>
+  {{if $c.Asked}}<div class="tile"><b class="state-word s-{{$c.Status.State}}">{{$c.Status.Headline}}</b><span>right now</span></div>{{end}}
+</div>
+
+{{with $c.Spool}}
+<div class="loaded-line">
+  <span class="swatch" style="--c: {{.Swatch}}" aria-hidden="true"></span>
+  Loaded: <a href="/filament/{{.ID}}"><b>{{.Label}}</b></a>
+  <span class="muted">· {{printf "%.0f" .Remaining}} g left</span>
+  {{with .DryNote}}<span class="dry-note small">· {{.}}</span>{{end}}
+</div>
+{{else}}
+<p class="muted small">Nothing loaded. <a href="/filament">Load a spool</a> and prints sent here take their filament off it.</p>
+{{end}}
+
+{{/* --- maintenance ---------------------------------------------------------- */}}
+<section class="panel-block" id="maintenance">
+  <div class="section-head"><h2>Maintenance</h2></div>
+  <p class="muted small">{{$d.Hours.Label}}.
+    {{if ne $d.Hours.Source "printer"}}Klipper printers report their own total once connected; until then this adds up the slicer's estimate for every print sent from here.{{end}}</p>
+
+  {{if $d.Tasks}}
+  <ul class="maint">
+    {{range $d.Tasks}}
+    <li class="maint-row{{if .Due}} due{{else if .Soon}} soon{{end}}">
+      <div class="maint-body">
+        <b>{{.Task}}</b>
+        <span class="muted small">{{.Interval}} · last done {{since .LastAt}}</span>
+      </div>
+      <span class="maint-when">{{.Headline}}</span>
+      <form method="post" action="/maintenance/{{.ID}}/done">
+        <button class="btn tiny{{if .Due}} primary{{end}}" type="submit">Done</button>
+      </form>
+      <form method="post" action="/maintenance/{{.ID}}/delete" data-confirm="Stop tracking “{{.Task}}”? Past log entries stay.">
+        <button class="btn tiny ghost" type="submit" aria-label="Stop tracking {{.Task}}">×</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">Nothing tracked yet. Pick from the common ones below — they are starting
+  points, not the manufacturer's schedule, so adjust the numbers to how the machine behaves.</p>
+  {{end}}
+
+  <details class="tuck" {{if not $d.Tasks}}open{{end}}>
+    <summary>Add a job</summary>
+    <div class="filter-row presets">
+      {{range $i, $t := $d.Presets}}
+      <form method="post" action="/printing/printers/{{$c.ID}}/maintenance" class="inline">
+        <input type="hidden" name="preset" value="{{$i}}">
+        <button class="chip sm preset" type="submit">{{$t.Task}} · {{if $t.EveryHours}}{{printf "%.0f" $t.EveryHours}} h{{else}}{{$t.EveryDays}} days{{end}}</button>
+      </form>
+      {{end}}
+    </div>
+    <form method="post" action="/printing/printers/{{$c.ID}}/maintenance" class="stack">
+      <div class="field-row">
+        <label>Job <input name="task" autocomplete="off" placeholder="Replace the PTFE tube"></label>
+        <label>Every … hours of printing <input name="every_hours" type="number" min="0" step="any" placeholder="500"></label>
+        <label>or every … days <input name="every_days" type="number" min="0" placeholder="180"></label>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Add</button></div>
+    </form>
+    <form method="post" action="/printing/printers/{{$c.ID}}/hours" class="inline-form-row">
+      <label class="small">Hours it had done before it was added here
+        <input name="base_hours" type="number" min="0" step="any" value="{{printf "%.0f" $c.BaseHours}}"></label>
+      <button class="btn tiny" type="submit">Save</button>
+    </form>
+  </details>
+
+  {{with $d.History}}
+  <h3 class="sub-head">Done recently</h3>
+  <ul class="rows plain">
+    {{range .}}<li>{{.Task}} <span class="muted small">at {{printf "%.0f" .Hours}} h · {{since .DoneAt}}{{if .Note}} · {{.Note}}{{end}}</span></li>{{end}}
+  </ul>
+  {{end}}
+</section>
+
+{{/* --- spares ---------------------------------------------------------------- */}}
+<section class="panel-block" id="spares">
+  <div class="section-head"><h2>Spares for it</h2></div>
+  {{with $d.Spares}}
+  <ul class="rows">
+    {{range .}}
+    <li>
+      <a class="row-item" href="/items/{{.ID}}"><span class="row-name">{{.Name}}</span></a>
+      <span class="row-qty{{if le .Quantity .LowStock}} zero{{end}}">{{.Quantity}}</span>
+      {{if le .Quantity .LowStock}}<span class="chip xs bad">reorder</span>{{end}}
+      <form method="post" action="/printing/printers/{{$c.ID}}/spares">
+        <input type="hidden" name="item_id" value="{{.ID}}"><input type="hidden" name="remove" value="1">
+        <button class="btn tiny ghost" type="submit" aria-label="Stop listing {{.Name}} as a spare">×</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted small">Nozzles, a PTFE tube, a spare hotend fan — parts already on the shelf,
+  listed here so the printer says when it is running short of them.</p>
+  {{end}}
+  {{if $d.Items}}
+  <form method="post" action="/printing/printers/{{$c.ID}}/spares" class="inline-form-row">
+    <select name="item_id" aria-label="Part to keep as a spare">
+      {{range $d.Items}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+    <button class="btn tiny" type="submit">Keep as a spare</button>
+  </form>
+  {{end}}
+</section>
+
+{{with $d.Jobs}}
+<section class="panel-block">
+  <div class="section-head"><h2>Sent to it</h2></div>
+  <ul class="rows plain">
+    {{range .}}<li{{if .Returned}} class="replaced"{{end}}>{{.Name}}
+      <span class="muted small">{{if .Estimate}}{{.Estimate}} · {{end}}{{if .Grams}}{{printf "%.0f" .Grams}} g{{if .SpoolName}} of {{.SpoolName}}{{end}} · {{end}}{{since .SentAt}}{{if not .OK}} · failed{{end}}</span></li>{{end}}
+  </ul>
+</section>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

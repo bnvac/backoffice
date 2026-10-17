@@ -9,6 +9,11 @@
     <div class="folder-actions">
       <a class="chip sm{{if eq $d.Code "qr"}} on{{end}}" href="{{$d.Query.LabelsURL "qr"}}">QR</a>
       <a class="chip sm{{if eq $d.Code "barcode"}} on{{end}}" href="{{$d.Query.LabelsURL "barcode"}}">Barcode</a>
+      <span class="filter-label">Also</span>
+      <a class="chip sm" href="/labels/spools">Spools</a>
+      <a class="chip sm" href="/labels/boards">Boards</a>
+      <a class="chip sm" href="/labels/machines">Machines</a>
+      <a class="chip sm" href="/labels/printers">Printers</a>
       <button class="btn primary" type="button" onclick="window.print()">Print</button>
     </div>
   </div>

@@ -1,0 +1,103 @@
+{{define "spool.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+{{$s := $d.Spool}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/filament">Filament</a><span class="sep">/</span><span class="here">{{$s.Label}}</span></nav>
+
+<div class="spool-hero">
+  <span class="reel big" style="--c: {{$s.Swatch}}" aria-hidden="true"><span class="reel-wound" style="--fill: {{$s.Percent}}%"></span></span>
+  <div class="spool-hero-body">
+    <h1>{{$s.Label}}</h1>
+    <p class="muted">{{if $s.Brand}}{{$s.Brand}} · {{end}}{{$s.Diameter}} mm{{if $s.Location}} · {{$s.Location}}{{end}}</p>
+    <div class="spool-big-left"><b>{{printf "%.0f" $s.Remaining}} g</b> <span class="muted">left of {{printf "%.0f" $s.NetGrams}} g</span></div>
+    <span class="budget-bar spool-bar{{if $s.Low}} over{{end}}"><span style="width: {{$s.Percent}}%"></span></span>
+    <div class="spool-tags">
+      {{if $s.Loaded}}<span class="chip xs on-printer">on <a href="/printing/printers/{{$s.PrinterRef}}">{{$s.PrinterName}}</a></span>{{end}}
+      {{if $s.Empty}}<span class="chip xs">used up</span>{{end}}
+      {{with $s.Info}}<span class="chip xs">{{.Hotend}} °C nozzle · {{.Bed}} °C bed</span>{{end}}
+    </div>
+    {{with $s.DryNote}}<p class="dry-note">{{.}}</p>{{end}}
+  </div>
+</div>
+
+{{if not $s.Empty}}
+<section class="panel spool-actions">
+  {{/* The scale is the reason to scan a spool label, so it comes first. */}}
+  <form method="post" action="/filament/{{$s.ID}}/weigh" class="weigh">
+    <label>On the scale, g
+      <input name="gross" type="number" min="0" step="any" inputmode="decimal" required
+             {{if not $s.CanWeigh}}disabled{{end}} placeholder="the whole spool">
+    </label>
+    <button class="btn primary" type="submit" {{if not $s.CanWeigh}}disabled{{end}}>Set what is left</button>
+    <p class="muted small">{{if $s.CanWeigh}}Minus the empty spool's {{printf "%.0f" $s.TareGrams}} g.{{else}}Weighing needs the empty spool's weight —
+      <a href="/filament/{{$s.ID}}?edit=1#edit">add it</a>.{{end}}</p>
+  </form>
+
+  <div class="spool-buttons">
+    <form method="post" action="/filament/{{$s.ID}}/load" class="inline-form-row">
+      <select name="printer_id" aria-label="Printer to load it on">
+        <option value="">not on a printer</option>
+        {{range $d.Printers}}<option value="{{.ID}}" {{if eq $s.PrinterRef .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+      <button class="btn" type="submit">{{if $s.Loaded}}Move{{else}}Load{{end}}</button>
+    </form>
+    <form method="post" action="/filament/{{$s.ID}}/dried"><button class="btn" type="submit">Dried it just now</button></form>
+    <form method="post" action="/filament/{{$s.ID}}/finish" data-confirm="Mark {{$s.Label}} as used up?">
+      <button class="btn" type="submit">Used up</button></form>
+    <a class="btn ghost" href="/filament/{{$s.ID}}?edit=1#edit">Edit</a>
+  </div>
+</section>
+{{end}}
+
+{{if $d.Edit}}
+<details class="panel" id="edit" open>
+  <summary class="btn">Editing {{$s.Label}}</summary>
+  <form method="post" action="/filament/{{$s.ID}}" class="stack">
+    <div class="field-row">
+      <label>Material
+        <select name="material">
+          {{range $d.Materials}}<option value="{{.Key}}" {{if eq .Key $s.Material}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      <label>Brand <input name="brand" value="{{$s.Brand}}" autocomplete="off"></label>
+    </div>
+    {{template "colour-picker" dict "Presets" $d.Presets "Current" $s.ColourHex "Name" $s.ColourName}}
+    <div class="field-row">
+      <label>Filament when new, g <input name="net_grams" type="number" min="1" step="any" value="{{$s.NetGrams}}"></label>
+      <label>Empty spool weighs, g <input name="tare_grams" type="number" min="0" step="any" value="{{if $s.TareGrams}}{{$s.TareGrams}}{{end}}"></label>
+      <label>Diameter, mm <input name="diameter" type="number" min="1" step="any" value="{{$s.Diameter}}"></label>
+    </div>
+    <div class="field-row">
+      <label>Where it lives <input name="location" value="{{$s.Location}}" autocomplete="off"></label>
+      <label>Notes <input name="notes" value="{{$s.Notes}}" autocomplete="off"></label>
+    </div>
+    <div class="actions">
+      <button class="btn primary" type="submit">Save</button>
+      <a class="btn ghost" href="/filament/{{$s.ID}}">Cancel</a>
+    </div>
+  </form>
+  <form method="post" action="/filament/{{$s.ID}}/delete" data-confirm="Delete {{$s.Label}}? Its prints keep their history but lose the link.">
+    <button class="btn tiny danger" type="submit">Delete this spool</button>
+  </form>
+</details>
+{{end}}
+
+<section class="panel-block">
+  <div class="section-head"><h2>Printed in this</h2>
+    <a class="chip sm" href="/qr/spool/{{$s.ID}}" target="_blank" rel="noopener">QR code</a></div>
+  {{with $d.Jobs}}
+  <ul class="rows plain">
+    {{range .}}
+    <li{{if .Returned}} class="replaced"{{end}}>{{.Name}}
+      <span class="muted small">{{printf "%.0f" .Grams}} g · on {{.Printer}} · {{since .SentAt}}{{if .Returned}} · put back{{end}}</span></li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted small">Nothing yet. Prints sent from the printing page come off this spool when it is the one loaded, or the one closest in colour to what was sliced.</p>
+  {{end}}
+  {{if $s.Notes}}<p class="muted">{{$s.Notes}}</p>{{end}}
+</section>
+
+{{template "bottom" .}}
+{{end}}

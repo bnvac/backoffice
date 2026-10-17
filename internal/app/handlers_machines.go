@@ -138,3 +138,36 @@ func (a *App) handleDeleteMachine(w http.ResponseWriter, r *http.Request) {
 	a.store.Record(a.actor(r), "removed a machine", "machine", id, m.Name)
 	redirect(w, r, "/machines", "Removed "+m.Name, "")
 }
+
+// handleMachine is a machine's read-only page — where a scanned label lands,
+// so it shows what you came to the cupboard to find out, not a form.
+func (a *App) handleMachine(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	m, err := a.store.GetMachine(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		a.fail(w, err, http.StatusInternalServerError)
+		return
+	}
+	all, _ := a.store.ListMachines()
+	var children []Machine
+	for _, c := range all {
+		if c.ParentRef() == id {
+			children = append(children, c)
+		}
+	}
+	one := []Machine{m}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*reachTimeout)
+	defer cancel()
+	Reachability(ctx, one, reachTimeout)
+	a.render(w, r, "machine.html", m.Name, struct {
+		Machine  Machine
+		Children []Machine
+	}{one[0], children})
+}

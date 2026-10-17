@@ -707,6 +707,75 @@ CREATE TABLE machines (
 CREATE INDEX idx_machines_item ON machines(item_id);
 `,
 	},
+	{
+		name: "filament, maintenance and spares",
+		sql: `
+-- Filament in grams, not units. tare_grams is the empty spool, so a kitchen
+-- scale reading turns straight into grams left. printer_id is the printer it
+-- is loaded on; one spool per printer, enforced where it is set.
+CREATE TABLE spools (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	material    TEXT    NOT NULL,
+	brand       TEXT    NOT NULL DEFAULT '',
+	colour_name TEXT    NOT NULL DEFAULT '',
+	colour_hex  TEXT    NOT NULL DEFAULT '',
+	diameter    REAL    NOT NULL DEFAULT 1.75,
+	net_grams   REAL    NOT NULL DEFAULT 1000,
+	used_grams  REAL    NOT NULL DEFAULT 0,
+	tare_grams  REAL    NOT NULL DEFAULT 0,
+	printer_id  INTEGER REFERENCES printers(id) ON DELETE SET NULL,
+	location    TEXT    NOT NULL DEFAULT '',
+	notes       TEXT    NOT NULL DEFAULT '',
+	dried_at    TEXT    NOT NULL DEFAULT '',
+	empty_at    TEXT    NOT NULL DEFAULT '',
+	created_at  TEXT    NOT NULL
+);
+CREATE INDEX idx_spools_printer ON spools(printer_id);
+
+-- What a print took, from the slicer's own numbers in the file. returned_at
+-- is set when a print did not happen and its filament was put back.
+ALTER TABLE print_jobs ADD COLUMN spool_id    INTEGER REFERENCES spools(id) ON DELETE SET NULL;
+ALTER TABLE print_jobs ADD COLUMN grams       REAL NOT NULL DEFAULT 0;
+ALTER TABLE print_jobs ADD COLUMN est_seconds REAL NOT NULL DEFAULT 0;
+ALTER TABLE print_jobs ADD COLUMN returned_at TEXT NOT NULL DEFAULT '';
+
+-- Print hours. reported_seconds is the printer's own counter when it keeps
+-- one; base_hours is what it had done before it was added here.
+ALTER TABLE printers ADD COLUMN base_hours       REAL NOT NULL DEFAULT 0;
+ALTER TABLE printers ADD COLUMN reported_seconds REAL NOT NULL DEFAULT 0;
+ALTER TABLE printers ADD COLUMN reported_at      TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE maintenance (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	printer_id  INTEGER NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+	task        TEXT    NOT NULL,
+	every_hours REAL    NOT NULL DEFAULT 0,
+	every_days  INTEGER NOT NULL DEFAULT 0,
+	last_hours  REAL    NOT NULL DEFAULT 0,
+	last_at     TEXT    NOT NULL,
+	notes       TEXT    NOT NULL DEFAULT '',
+	created_at  TEXT    NOT NULL
+);
+CREATE INDEX idx_maintenance_printer ON maintenance(printer_id);
+
+-- The log keeps the task's name rather than a reference, so deleting a task
+-- does not erase the record that it was done.
+CREATE TABLE maintenance_log (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+	task       TEXT    NOT NULL,
+	hours      REAL    NOT NULL DEFAULT 0,
+	note       TEXT    NOT NULL DEFAULT '',
+	done_at    TEXT    NOT NULL
+);
+
+CREATE TABLE printer_spares (
+	printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+	item_id    INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+	PRIMARY KEY (printer_id, item_id)
+);
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"path"
 	"strconv"
@@ -29,6 +30,7 @@ type printingData struct {
 	Jobs     []PrintJob
 	Items    []Item
 	Limit    string
+	Spools   []Spool
 }
 
 // printerCard is a printer with what it said when asked just now.
@@ -37,6 +39,9 @@ type printerCard struct {
 	Status    PrintStatus
 	StatusErr string
 	Asked     bool
+	Reported  float64 // the printer's lifetime print seconds, when it keeps count
+	Spool     *Spool  // what is loaded on it
+	Due       int     // maintenance jobs due
 }
 
 // materialRow is one filament across every machine you own.
@@ -64,8 +69,22 @@ func (a *App) handlePrinting(w http.ResponseWriter, r *http.Request) {
 	// switched-off printer should cost a couple of seconds, not four.
 	ctx, cancel := context.WithTimeout(r.Context(), 2500*time.Millisecond)
 	defer cancel()
+	cards := askPrinters(ctx, printers)
+	a.keepCounters(cards)
+	due := a.store.MaintDue(printers)
+	spools, _ := a.store.ListSpools(false)
+	for i := range cards {
+		cards[i].Due = due[cards[i].ID]
+		for _, sp := range spools {
+			if sp.PrinterRef() == cards[i].ID {
+				sp := sp
+				cards[i].Spool = &sp
+			}
+		}
+	}
 	data := printingData{
-		Printers: askPrinters(ctx, printers),
+		Printers: cards,
+		Spools:   spools,
 		Presets:  PrinterPresets,
 		Nozzles:  NozzleKinds,
 		Links:    LinkKinds,
@@ -289,6 +308,13 @@ func askPrinters(ctx context.Context, printers []Printer) []printerCard {
 			c.Status, c.Asked = st, true
 			if err != nil {
 				c.StatusErr = err.Error()
+				return
+			}
+			// Only worth asking for the counter from a printer that answered.
+			if pc, ok := link.(PrintCounter); ok {
+				if secs, err := pc.PrintSeconds(ctx); err == nil && secs > 0 {
+					c.Reported = secs
+				}
 			}
 		}(&cards[i], link)
 	}
@@ -344,6 +370,30 @@ func extendDeadline(w http.ResponseWriter) {
 	_ = rc.SetWriteDeadline(deadline)
 }
 
+// keepCounters stores any lifetime counters a printer just reported, so the
+// maintenance list works on a day the printer is switched off.
+func (a *App) keepCounters(cards []printerCard) {
+	for _, c := range cards {
+		if c.Reported > 0 && c.Reported != c.ReportedSeconds {
+			a.store.RecordReportedSeconds(c.ID, c.Reported)
+		}
+	}
+}
+
+// gcodeMeta reads what the slicer wrote into a kept file.
+func (a *App) gcodeMeta(blob string) GcodeMeta {
+	f, err := a.gcode.Open(blob)
+	if err != nil {
+		return GcodeMeta{}
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return GcodeMeta{}
+	}
+	return ReadGcodeMeta(f, info.Size())
+}
+
 // handleSendGcode takes a sliced file, keeps it, and sends it to the printer.
 // It is kept first, so a send that fails still leaves the file here to resend
 // once the printer is back.
@@ -388,7 +438,7 @@ func (a *App) handleSendGcode(w http.ResponseWriter, r *http.Request) {
 
 	job := PrintJob{PrinterID: id, ItemID: optionalID(r.FormValue("item_id")),
 		Name: name, Blob: blob, SHA256: sum, Size: size}
-	a.sendJob(w, r, p, job, r.FormValue("start") != "")
+	a.sendJob(w, r, p, job, r.FormValue("start") != "", r.FormValue("spool_id"))
 }
 
 // handleResendJob sends a kept file again, to the same printer or another.
@@ -416,13 +466,75 @@ func (a *App) handleResendJob(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	job := old
-	job.ID, job.PrinterID, job.Error, job.Started = 0, printerID, "", false
-	a.sendJob(w, r, p, job, r.FormValue("start") != "")
+	job := PrintJob{PrinterID: printerID, ItemID: old.ItemID, Name: old.Name, Blob: old.Blob,
+		SHA256: old.SHA256, Size: old.Size}
+	a.sendJob(w, r, p, job, r.FormValue("start") != "", r.FormValue("spool_id"))
 }
 
-// sendJob does the actual upload and records how it went, either way.
-func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job PrintJob, start bool) {
+// chooseSpool resolves the form's choice: blank is "work it out", "none" is
+// "do not track this one", and a number is that spool.
+func (a *App) chooseSpool(choice string, printerID int64, meta GcodeMeta) (*Spool, string) {
+	switch choice {
+	case "none":
+		return nil, ""
+	case "":
+		spools, err := a.store.ListSpools(false)
+		if err != nil {
+			return nil, ""
+		}
+		if m := PickSpool(spools, printerID, meta); m.Found {
+			return &m.Spool, m.Reason
+		}
+		return nil, ""
+	}
+	id := optionalID(choice)
+	if id == nil {
+		return nil, ""
+	}
+	sp, err := a.store.GetSpool(*id)
+	if err != nil {
+		return nil, ""
+	}
+	return &sp, "chosen"
+}
+
+// sendJob does the upload, takes the filament it will use off the spool, and
+// records how it went either way. Warnings — not enough left, sliced for a
+// different plastic — do not stop the send: the person at the printer may know
+// better than the numbers, and they are told rather than overruled.
+func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job PrintJob, start bool, spoolChoice string) {
+	meta := a.gcodeMeta(job.Blob)
+	job.EstSeconds = meta.Seconds
+
+	spool, _ := a.chooseSpool(spoolChoice, p.ID, meta)
+	var warnings []string
+	if spool != nil {
+		job.SpoolID = &spool.ID
+		job.Grams = meta.GramsFor(spool.Info().Density())
+		if want := MaterialFromSlicer(meta.Material); want != "" && want != spool.Material {
+			wantName := want
+			if m, ok := MaterialByKey(want); ok {
+				wantName = m.Name
+			}
+			warnings = append(warnings, fmt.Sprintf("it was sliced for %s, but %s is %s",
+				wantName, spool.Label(), spool.Info().Name))
+		}
+		if job.Grams > spool.Remaining() {
+			warnings = append(warnings, fmt.Sprintf("it needs about %.0f g and %s has %.0f g left",
+				job.Grams, spool.Label(), spool.Remaining()))
+		}
+		if note := spool.DryNote(); note != "" {
+			warnings = append(warnings, spool.Label()+": "+note)
+		}
+		// The spool the grams come off is not necessarily the one in the
+		// extruder. If something else is loaded, the print is about to run
+		// through the wrong filament — worth saying loudest when it starts now.
+		if loaded, ok := a.store.LoadedSpool(p.ID); ok && loaded.ID != spool.ID {
+			warnings = append(warnings, fmt.Sprintf("%s is what is loaded on %s, not %s — swap it before the print starts",
+				loaded.Label(), p.Name, spool.Label()))
+		}
+	}
+
 	link, ok := linkFor(p)
 	if !ok {
 		job.Error = "not connected — add the printer's address first"
@@ -452,19 +564,55 @@ func (a *App) sendJob(w http.ResponseWriter, r *http.Request, p Printer, job Pri
 	}
 	a.store.Record(a.actor(r), "sent a print", "printer", p.ID, job.Name)
 
-	switch {
-	case err != nil:
+	if err != nil {
 		redirect(w, r, "/printing", "", "Could not send "+job.Name+": "+err.Error())
+		return
+	}
+
+	// The file arrived, so the filament is spoken for. If it never prints,
+	// the job list has a button to put it back.
+	used := ""
+	if spool != nil && job.Grams > 0 {
+		a.store.UseFilament(spool.ID, job.Grams)
+		left := spool.Remaining() - job.Grams
+		used = fmt.Sprintf(" · %.0f g from %s, %.0f g left", job.Grams, spool.Label(), math.Max(0, left))
+	}
+	var msg string
+	switch {
 	case started:
-		redirect(w, r, "/printing", "Sent "+job.Name+" to "+p.Name+" — printing", "")
+		msg = "Sent " + job.Name + " to " + p.Name + " — printing"
 	case start:
 		// Asked to start, file arrived, printer did not say it started. Usually
 		// it is already busy; say so rather than claim a print is running.
-		redirect(w, r, "/printing", "Sent "+job.Name+" to "+p.Name+
-			", but it did not start — it may already be printing. Start it from the printer.", "")
+		msg = "Sent " + job.Name + " to " + p.Name +
+			", but it did not start — it may already be printing. Start it from the printer."
 	default:
-		redirect(w, r, "/printing", "Sent "+job.Name+" to "+p.Name+" — start it when the bed is ready", "")
+		msg = "Sent " + job.Name + " to " + p.Name + " — start it when the bed is ready"
 	}
+	warn := ""
+	if len(warnings) > 0 {
+		warn = "Heads up: " + strings.Join(warnings, "; ") + "."
+	}
+	redirect(w, r, "/printing", msg+used, warn)
+}
+
+// handleReturnFilament is "that one didn't print": the grams go back on the
+// spool and the print stops counting towards maintenance hours.
+func (a *App) handleReturnFilament(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	j, err := a.store.ReturnJobFilament(id)
+	if err != nil {
+		redirect(w, r, "/printing", "", err.Error())
+		return
+	}
+	msg := "Marked " + j.Name + " as not printed"
+	if j.GivesBack() {
+		msg += fmt.Sprintf(" — %.0f g back on the spool", j.Grams)
+	}
+	redirect(w, r, "/printing", msg, "")
 }
 
 // handleJobFile downloads a kept G-code file, under the name it was sliced as.

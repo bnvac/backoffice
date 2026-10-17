@@ -2,6 +2,8 @@ package app
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -20,9 +22,35 @@ type PrintJob struct {
 	Error     string // why it did not arrive, when it did not
 	SentAt    time.Time
 
-	Printer  string // joined in for the list
-	ItemName string
+	// What it used, from the slicer's own figures in the file.
+	SpoolID    *int64
+	Grams      float64
+	EstSeconds float64
+	ReturnedAt time.Time // filament put back because it did not print
+
+	Printer   string // joined in for the list
+	ItemName  string
+	SpoolName string
+	SpoolHex  string
 }
+
+func (j PrintJob) Returned() bool  { return !j.ReturnedAt.IsZero() }
+func (j PrintJob) SpoolRef() int64 { return derefID(j.SpoolID) }
+func (j PrintJob) Estimate() string {
+	if j.EstSeconds <= 0 {
+		return ""
+	}
+	return roughDuration(time.Duration(j.EstSeconds * float64(time.Second)))
+}
+
+// CanReturn is whether "it did not print" means anything: there is filament to
+// put back, or estimated hours to stop counting.
+func (j PrintJob) CanReturn() bool {
+	return j.OK() && !j.Returned() && ((j.SpoolID != nil && j.Grams > 0) || j.EstSeconds > 0)
+}
+
+// GivesBack is whether marking it as not printed returns any filament.
+func (j PrintJob) GivesBack() bool { return j.SpoolID != nil && j.Grams > 0 }
 
 func (j PrintJob) OK() bool          { return j.Error == "" }
 func (j PrintJob) SizeLabel() string { return humanBytes(j.Size) }
@@ -37,26 +65,47 @@ func (j PrintJob) ItemRef() int64 {
 
 func (s *Store) AddPrintJob(j PrintJob) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO print_jobs (printer_id, item_id, name, blob, sha256,
-		size, started, error, sent_at) VALUES (?,?,?,?,?,?,?,?,?)`,
-		j.PrinterID, j.ItemID, j.Name, j.Blob, j.SHA256, j.Size, j.Started, j.Error, nowRFC3339())
+		size, started, error, sent_at, spool_id, grams, est_seconds)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+		j.PrinterID, j.ItemID, j.Name, j.Blob, j.SHA256, j.Size, j.Started, j.Error, nowRFC3339(),
+		j.SpoolID, j.Grams, j.EstSeconds)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
+// JobFilter narrows the history. Zero fields do not filter.
+type JobFilter struct{ Item, Printer, Spool int64 }
+
 // RecentPrintJobs is the history, newest first, across every printer or for
 // one item (pass itemID 0 for all).
 func (s *Store) RecentPrintJobs(itemID int64, limit int) ([]PrintJob, error) {
+	return s.PrintJobs(JobFilter{Item: itemID}, limit)
+}
+
+func (s *Store) PrintJobs(f JobFilter, limit int) ([]PrintJob, error) {
 	q := `SELECT j.id, j.printer_id, j.item_id, j.name, j.blob, j.sha256, j.size, j.started,
-		j.error, j.sent_at, p.name, COALESCE(i.name, '')
+		j.error, j.sent_at, p.name, COALESCE(i.name, ''), j.spool_id, j.grams, j.est_seconds,
+		j.returned_at, COALESCE(sp.colour_name, ''), COALESCE(sp.material, ''),
+		COALESCE(sp.colour_hex, '')
 		FROM print_jobs j
 		JOIN printers p ON p.id = j.printer_id
-		LEFT JOIN items i ON i.id = j.item_id`
+		LEFT JOIN items i ON i.id = j.item_id
+		LEFT JOIN spools sp ON sp.id = j.spool_id`
+	var where []string
 	args := []any{}
-	if itemID > 0 {
-		q += ` WHERE j.item_id = ?`
-		args = append(args, itemID)
+	if f.Item > 0 {
+		where, args = append(where, "j.item_id = ?"), append(args, f.Item)
+	}
+	if f.Printer > 0 {
+		where, args = append(where, "j.printer_id = ?"), append(args, f.Printer)
+	}
+	if f.Spool > 0 {
+		where, args = append(where, "j.spool_id = ?"), append(args, f.Spool)
+	}
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
 	}
 	q += ` ORDER BY j.sent_at DESC, j.id DESC LIMIT ?`
 	args = append(args, limit)
@@ -70,17 +119,27 @@ func (s *Store) RecentPrintJobs(itemID int64, limit int) ([]PrintJob, error) {
 	var out []PrintJob
 	for rows.Next() {
 		var j PrintJob
-		var item sql.NullInt64
-		var sent string
+		var item, spool sql.NullInt64
+		var sent, returned, colourName, material string
 		if err := rows.Scan(&j.ID, &j.PrinterID, &item, &j.Name, &j.Blob, &j.SHA256, &j.Size,
-			&j.Started, &j.Error, &sent, &j.Printer, &j.ItemName); err != nil {
+			&j.Started, &j.Error, &sent, &j.Printer, &j.ItemName, &spool, &j.Grams,
+			&j.EstSeconds, &returned, &colourName, &material, &j.SpoolHex); err != nil {
 			return nil, err
+		}
+		if material != "" {
+			// Named the same way as everywhere else, rather than rebuilt in SQL.
+			j.SpoolName = Spool{ColourName: colourName, Material: material}.Label()
 		}
 		if item.Valid {
 			id := item.Int64
 			j.ItemID = &id
 		}
+		if spool.Valid {
+			id := spool.Int64
+			j.SpoolID = &id
+		}
 		j.SentAt, _ = time.Parse(time.RFC3339, sent)
+		j.ReturnedAt, _ = time.Parse(time.RFC3339, returned)
 		out = append(out, j)
 	}
 	return out, rows.Err()
@@ -88,12 +147,12 @@ func (s *Store) RecentPrintJobs(itemID int64, limit int) ([]PrintJob, error) {
 
 func (s *Store) GetPrintJob(id int64) (PrintJob, error) {
 	var j PrintJob
-	var item sql.NullInt64
-	var sent string
+	var item, spool sql.NullInt64
+	var sent, returned string
 	err := s.db.QueryRow(`SELECT id, printer_id, item_id, name, blob, sha256, size, started,
-		error, sent_at FROM print_jobs WHERE id = ?`, id).
+		error, sent_at, spool_id, grams, est_seconds, returned_at FROM print_jobs WHERE id = ?`, id).
 		Scan(&j.ID, &j.PrinterID, &item, &j.Name, &j.Blob, &j.SHA256, &j.Size, &j.Started,
-			&j.Error, &sent)
+			&j.Error, &sent, &spool, &j.Grams, &j.EstSeconds, &returned)
 	if err != nil {
 		return PrintJob{}, err
 	}
@@ -101,6 +160,44 @@ func (s *Store) GetPrintJob(id int64) (PrintJob, error) {
 		v := item.Int64
 		j.ItemID = &v
 	}
+	if spool.Valid {
+		v := spool.Int64
+		j.SpoolID = &v
+	}
 	j.SentAt, _ = time.Parse(time.RFC3339, sent)
+	j.ReturnedAt, _ = time.Parse(time.RFC3339, returned)
 	return j, nil
+}
+
+// ReturnJobFilament marks a print as never having happened: its filament goes
+// back on the spool and its hours stop counting. Once only, in one
+// transaction, so a double click cannot give the filament back twice.
+func (s *Store) ReturnJobFilament(id int64) (PrintJob, error) {
+	j, err := s.GetPrintJob(id)
+	if err != nil {
+		return j, err
+	}
+	if !j.CanReturn() {
+		return j, fmt.Errorf("nothing to put back for that print")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return j, err
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`UPDATE print_jobs SET returned_at = ? WHERE id = ? AND returned_at = ''`,
+		nowRFC3339(), id)
+	if err != nil {
+		return j, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return j, fmt.Errorf("that print's filament was already put back")
+	}
+	if j.GivesBack() {
+		if _, err := tx.Exec(`UPDATE spools SET used_grams = MAX(0, used_grams - ?) WHERE id = ?`,
+			j.Grams, *j.SpoolID); err != nil {
+			return j, err
+		}
+	}
+	return j, tx.Commit()
 }

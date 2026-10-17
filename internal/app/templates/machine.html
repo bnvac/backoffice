@@ -1,0 +1,42 @@
+{{define "machine.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+{{$m := $d.Machine}}
+
+<nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/machines">Machines</a><span class="sep">/</span><span class="here">{{$m.Name}}</span></nav>
+
+<div class="folder-head">
+  <h1><span class="reach {{if $m.Up.Checked}}{{if $m.Up.OK}}up{{else}}down{{end}}{{end}}" aria-hidden="true"></span> {{$m.Name}}</h1>
+  <div class="folder-actions">
+    <a class="chip sm" href="/qr/machine/{{$m.ID}}" target="_blank" rel="noopener">QR code</a>
+    <a class="btn tiny" href="/machines?edit={{$m.ID}}#edit">Edit</a>
+  </div>
+</div>
+
+<dl class="facts wide">
+  {{if $m.Role}}<dt>Role</dt><dd>{{$m.Role}}</dd>{{end}}
+  {{if $m.Address}}<dt>Address</dt><dd><code>{{$m.Address}}</code>{{if $m.Up.Checked}} <span class="muted">— port {{$m.Port}} {{$m.Up.Label}}</span>{{end}}</dd>{{end}}
+  {{if $m.MAC}}<dt>MAC</dt><dd><code>{{$m.MAC}}</code></dd>{{end}}
+  {{if $m.OS}}<dt>OS</dt><dd>{{$m.OS}}</dd>{{end}}
+  {{if $m.Image}}<dt>Installed from</dt><dd><code>{{$m.Image}}</code></dd>{{end}}
+  {{if $m.ImageSum}}<dt>Image SHA-256</dt><dd><code class="sum">{{$m.ImageSum}}</code></dd>{{end}}
+  {{if $m.Hardware}}<dt>Hardware</dt><dd>{{$m.Hardware}}</dd>{{end}}
+  {{if $m.ItemName}}<dt>From the shelf</dt><dd><a href="/items/{{$m.ItemRef}}">{{$m.ItemName}}</a></dd>{{end}}
+  {{if $m.ParentName}}<dt>Runs on</dt><dd><a href="/machines/{{$m.ParentRef}}">{{$m.ParentName}}</a></dd>{{end}}
+  {{if $m.Location}}<dt>Where</dt><dd>{{$m.Location}}</dd>{{end}}
+  {{if $m.Watts}}<dt>Draw</dt><dd>{{$m.Watts}} W</dd>{{end}}
+  {{if $m.Notes}}<dt>Notes</dt><dd>{{$m.Notes}}</dd>{{end}}
+</dl>
+
+{{with $m.ServiceList}}
+<h2>Services</h2>
+<div class="card-tags">{{range .}}<span class="chip">{{.}}</span>{{end}}</div>
+{{end}}
+
+{{with $d.Children}}
+<h2>Running on it</h2>
+<ul class="rows plain">{{range .}}<li><a href="/machines/{{.ID}}">{{.Name}}</a>{{if .Role}} <span class="muted">— {{.Role}}</span>{{end}}</li>{{end}}</ul>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

@@ -81,6 +81,24 @@ The dashboard shows what each printer is doing without waiting on one that's
 switched off. It won't take an STL: a printer runs G-code, and slicing needs a
 slicer, which isn't something to hide inside a single binary.
 
+**Filament.** Spools in grams, with a colour. Every print sent from here reads
+the slicer's own figures out of the file — OrcaSlicer's header, PrusaSlicer's
+footer, Cura's metres — and takes the weight off the spool it was printed in:
+the loaded one if it's the right plastic, otherwise the nearest colour of the
+right plastic. Filter the shelf by colour family or material. Weighing a spool
+on a kitchen scale resets it exactly, because each spool knows its empty
+weight. If a print never happened, one button puts the grams back.
+
+**Maintenance.** Each printer counts print hours — from the printer itself if
+it keeps a total, otherwise from the slicer's estimates — and jobs like "check
+belt tension every 100 hours" come due by hours or by days. Spares are parts
+already on the shelf marked as belonging to a printer, so a nozzle running low
+shows on that printer's page.
+
+**Labels for everything.** QR labels for spools (with the empty-spool weight
+printed on, since that's the number you need at the scale), boards, machines
+and printers. Scanning one opens its page.
+
 **Firmware.** The shelf counts six ESP32s; this records which one is in the
 greenhouse running what. Keep the image with its SHA-256 and the page gives
 you the command to put it back — `esptool` with the right `--chip`, `avrdude`
@@ -221,7 +239,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 256 tests
+go test ./...          # 292 tests
 go test -race ./...
 go vet ./...
 ```

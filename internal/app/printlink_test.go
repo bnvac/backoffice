@@ -21,12 +21,13 @@ import (
 // fakeMoonraker answers the two calls the app makes, the way a Neptune 4 does,
 // and remembers what it was sent.
 type fakeMoonraker struct {
-	mu       sync.Mutex
-	key      string // required key, if any
-	state    string
-	progress float64
-	duration float64
-	busy     bool // refuses to start because something is printing
+	mu           sync.Mutex
+	key          string // required key, if any
+	state        string
+	progress     float64
+	duration     float64
+	busy         bool    // refuses to start because something is printing
+	totalSeconds float64 // lifetime print time it reports
 
 	gotName  string
 	gotBody  []byte
@@ -43,6 +44,10 @@ func (f *fakeMoonraker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch r.URL.Path {
+	case "/server/history/totals":
+		fmt.Fprintf(w, `{"result":{"job_totals":{"total_jobs":42,"total_time":%g,"total_print_time":%g,
+			"total_filament_used":123456.7,"longest_job":9000,"longest_print":8800}}}`,
+			f.totalSeconds*1.1, f.totalSeconds)
 	case "/printer/objects/query":
 		fmt.Fprintf(w, `{"result":{"eventtime":1.0,"status":{
 			"print_stats":{"state":%q,"filename":"case.gcode","print_duration":%g,"message":""},

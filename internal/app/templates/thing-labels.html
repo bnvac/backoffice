@@ -1,0 +1,46 @@
+{{define "thing-labels.html"}}
+{{template "top" .}}
+{{$d := .Data}}
+
+<div class="noprint">
+  <p class="crumb"><a href="/labels">← Part labels</a></p>
+  <div class="folder-head">
+    <h1>Labels</h1>
+    <div class="folder-actions">
+      <a class="chip sm" href="/labels">Parts</a>
+      {{range $d.Kinds}}<a class="chip sm{{if eq .Key $d.What}} on{{end}}" href="/labels/{{.Key}}">{{.Label}}</a>{{end}}
+      <button class="btn primary" type="button" onclick="window.print()">Print</button>
+    </div>
+  </div>
+  <p class="muted page-sub">
+    {{if eq $d.What "spools"}}Stick one on each spool. Scanning it opens the scale form, and the
+      empty-spool weight you need for it is printed on the label.
+    {{else if eq $d.What "boards"}}One per board that has firmware recorded. Scanning it shows what
+      is on that board and the command to put it back.
+    {{else if eq $d.What "machines"}}For the box in the cupboard: scanning it shows its address,
+      OS and what runs on it.
+    {{else}}Scanning it opens the printer's page — what is loaded and what maintenance is due.{{end}}
+    Codes point at <code>{{$d.BaseURL}}</code>; set <code>BASE_URL</code> if your phone reaches it
+    at a different address.
+  </p>
+</div>
+
+{{if $d.Labels}}
+<div class="sheet">
+  {{range $d.Labels}}
+  <div class="label{{if .Swatch}} has-swatch{{end}}">
+    <img class="code" src="{{.QR}}" alt="">
+    <div class="label-text">
+      {{if .Swatch}}<span class="label-swatch" style="--c: {{.Swatch}}"></span>{{end}}
+      <b>{{.Title}}</b>
+      {{range .Lines}}<span>{{.}}</span>{{end}}
+    </div>
+  </div>
+  {{end}}
+</div>
+{{else}}
+<div class="empty small noprint"><p><strong>Nothing to print yet.</strong></p></div>
+{{end}}
+
+{{template "bottom" .}}
+{{end}}

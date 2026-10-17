@@ -96,6 +96,12 @@ type PrinterLink interface {
 	Upload(ctx context.Context, name string, body io.Reader, size int64, start bool) (bool, error)
 }
 
+// PrintCounter is a link whose printer keeps a lifetime total of print time.
+// Moonraker does; OctoPrint needs a plugin for it, so it is not assumed.
+type PrintCounter interface {
+	PrintSeconds(ctx context.Context) (float64, error)
+}
+
 // LinkKinds is the connection picker.
 var LinkKinds = []struct{ Key, Label, Hint string }{
 	{"", "Not connected", ""},
@@ -305,6 +311,24 @@ func (m *moonraker) Upload(ctx context.Context, name string, body io.Reader, siz
 		return false, friendlyLinkError(m.base, err, code)
 	}
 	return out.PrintStarted || out.Result.PrintStarted, nil
+}
+
+// PrintSeconds is Moonraker's job history total, which survives restarts and
+// counts prints started from the screen or the slicer as well as from here.
+func (m *moonraker) PrintSeconds(ctx context.Context) (float64, error) {
+	req, _ := http.NewRequest(http.MethodGet, m.base+"/server/history/totals", nil)
+	var out struct {
+		Result struct {
+			JobTotals struct {
+				TotalPrintTime float64 `json:"total_print_time"`
+			} `json:"job_totals"`
+		} `json:"result"`
+	}
+	code, err := doJSON(ctx, lanStatusClient, req, m.key, &out)
+	if err != nil || code != http.StatusOK {
+		return 0, friendlyLinkError(m.base, err, code)
+	}
+	return out.Result.JobTotals.TotalPrintTime, nil
 }
 
 // --- OctoPrint ------------------------------------------------------------------

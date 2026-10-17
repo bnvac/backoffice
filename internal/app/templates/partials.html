@@ -150,3 +150,50 @@
   </a>
 </li>
 {{end}}
+
+{{/* A spool as a card: a drawn reel in its own colour, what is left, and
+     anything worth knowing before it goes on the printer. */}}
+{{define "spool-card"}}
+<li class="spool-card{{if .Low}} low{{end}}{{if .Empty}} used-up{{end}}">
+  <a class="reel-link" href="/filament/{{.ID}}" aria-label="{{.Label}}">
+    <span class="reel" style="--c: {{.Swatch}}" aria-hidden="true"><span class="reel-wound" style="--fill: {{.Percent}}%"></span></span>
+  </a>
+  <div class="spool-body">
+    <a class="spool-name" href="/filament/{{.ID}}">{{.Label}}</a>
+    {{if .Brand}}<span class="muted small">{{.Brand}}</span>{{end}}
+    <span class="budget-bar spool-bar{{if .Low}} over{{end}}"><span style="width: {{.Percent}}%"></span></span>
+    <span class="spool-left"><b>{{printf "%.0f" .Remaining}} g</b> <span class="muted">of {{printf "%.0f" .NetGrams}}</span></span>
+    <span class="spool-tags">
+      {{if .Loaded}}<span class="chip xs on-printer">on {{.PrinterName}}</span>{{end}}
+      {{if .Low}}<span class="chip xs bad">low</span>{{end}}
+      {{if .Empty}}<span class="chip xs">used up</span>{{end}}
+    </span>
+    {{with .DryNote}}<span class="dry-note small">{{.}}</span>{{end}}
+  </div>
+</li>
+{{end}}
+
+{{/* The colour picker for a spool: swatches for what filament is sold in,
+     and a free picker for everything else. */}}
+{{define "colour-picker"}}
+<fieldset class="spec-group colour-pick">
+  <legend>Colour</legend>
+  <div class="swatches">
+    {{$cur := .Current}}
+    {{range .Presets}}
+    <label class="swatch-opt" title="{{.Name}}">
+      <input type="radio" name="swatch" value="{{.Hex}}" {{if eq $cur .Hex}}checked{{end}}>
+      <span class="swatch" style="--c: {{.Hex}}"></span>
+      <span class="sr-only">{{.Name}}</span>
+    </label>
+    {{end}}
+    <label class="swatch-opt custom" title="Another colour">
+      <input type="radio" name="swatch" value="" {{if not $cur}}checked{{end}}>
+      <input type="color" name="colour_hex" value="{{if $cur}}{{$cur}}{{else}}#7a7a7a{{end}}" aria-label="Pick any colour">
+    </label>
+  </div>
+  <label>Name <span class="muted">— what the box calls it; left blank, the swatch name is used</span>
+    <input name="colour_name" autocomplete="off" placeholder="Galaxy Black" value="{{.Name}}">
+  </label>
+</fieldset>
+{{end}}

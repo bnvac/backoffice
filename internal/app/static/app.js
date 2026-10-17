@@ -763,3 +763,135 @@ document.querySelectorAll('[data-scanner]').forEach((root) => {
   setInterval(refresh, 20000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 })();
+
+// --- what a sliced file needs, before it is sent ------------------------------
+// The server reads the slicer's own figures from the file when it arrives and
+// takes the filament off the spool. This does the same reading in the browser
+// as soon as a file is picked, so the form can say "needs 23 g of PETG" and
+// pick the right spool before the upload rather than after it. It reads the
+// first and last 160 KB only — the slicers put their notes at the ends.
+(() => {
+  const forms = document.querySelectorAll('form[action$="/send"]');
+  if (!forms.length) return;
+  const WINDOW = 160 * 1024;
+
+  function parse(text) {
+    const m = {};
+    const kv = /^\s*;\s*([^:=\n]+?)\s*[:=]\s*(.+?)\s*$/gm;
+    let x;
+    const sum = (s) => s.split(/[,;]/).map(Number).filter((n) => n > 0).reduce((a, b) => a + b, 0);
+    const dur = (s) => {
+      if (/^\d+(\.\d+)?$/.test(s.trim())) return Number(s);
+      const g = /(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?/.exec(s.trim().toLowerCase()) || [];
+      return (+g[1] || 0) * 86400 + (+g[2] || 0) * 3600 + (+g[3] || 0) * 60 + (+g[4] || 0);
+    };
+    while ((x = kv.exec(text))) {
+      const k = x[1].toLowerCase().trim(), v = x[2].trim();
+      // The first total is the slicer's own summary; a later one does not replace it.
+      if (k === 'total filament weight [g]' || k === 'total filament used [g]') { if (!m.total && sum(v)) { m.grams = sum(v); m.total = true; } }
+      else if (k === 'filament used [g]' && !m.grams) m.grams = sum(v);
+      else if (k === 'filament used' && /m$/i.test(v) && !/mm$/i.test(v)) m.length = sum(v.replace(/m$/i, '')) * 1000;
+      else if ((k === 'total filament length [mm]' || k === 'filament used [mm]') && !m.length) m.length = sum(v);
+      else if (k === 'time') m.seconds = Number(v);
+      else if (k.startsWith('estimated printing time') && !m.seconds) m.seconds = dur(v);
+      else if (k === 'model printing time') {
+        const i = v.indexOf('total estimated time:');
+        m.seconds = dur(i >= 0 ? v.slice(i + 21) : v);
+      } else if ((k === 'filament_type' || k === 'filament type') && !m.material) m.material = v.split(/[;,]/)[0].replace(/"/g, '').trim();
+      else if (k === 'filament_colour' || k === 'filament_color') m.colour = v.split(/[;,]/)[0].replace(/"/g, '').trim().slice(0, 7);
+    }
+    return m;
+  }
+
+  // The same reading of a slicer's material name as the server's, kept short:
+  // specific names first, because "PA" turns up inside brand names.
+  function materialKey(s) {
+    s = (s || '').toUpperCase();
+    const has = (...w) => w.some((x) => s.includes(x));
+    const filled = has('CF', 'GF', 'CARBON', 'GLASS');
+    if (!s) return '';
+    if (has('PEEK', 'PEI', 'ULTEM')) return 'peek';
+    if (has('PETG', 'PCTG', 'PET-G')) return 'petg';
+    if (has('PVA', 'BVOH')) return 'pva';
+    if (has('TPU', 'TPE', 'FLEX')) return 'tpu';
+    if (has('ASA')) return 'asa';
+    if (has('ABS')) return 'abs';
+    if (has('PLA')) return has('WOOD', 'GLOW', 'METAL', 'MARBLE') || filled ? 'filled-pla' : 'pla';
+    if (has('NYLON', 'PAHT', 'PA6', 'PA12', 'PA-', 'PA ') || s === 'PA') return filled ? 'pa-cf' : 'pa';
+    if (s === 'PC' || has('POLYCARB') || s.startsWith('PC-')) return 'pc';
+    if (s === 'PP') return 'pp';
+    return '';
+  }
+
+  // CIELAB distance, as on the server: nearest colour as it looks, not as RGB.
+  function lab(hex) {
+    const n = parseInt((hex || '').replace('#', ''), 16);
+    if (Number.isNaN(n)) return null;
+    const lin = (c) => ((c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const R = lin(n >> 16 & 255), G = lin(n >> 8 & 255), B = lin(n & 255);
+    const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    const x = f((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047);
+    const y = f(0.2126 * R + 0.7152 * G + 0.0722 * B);
+    const z = f((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  }
+  const dist = (a, b) => {
+    const p = lab(a), q = lab(b);
+    return p && q ? Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) : Infinity;
+  };
+
+  const time = (s) => {
+    if (!s) return '';
+    const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+    return h ? `${h} h ${m} min` : `${m} min`;
+  };
+
+  forms.forEach((form) => {
+    const input = form.querySelector('input[type=file][name=gcode]');
+    const out = form.querySelector('[data-gcode-preview]');
+    const pick = form.querySelector('[data-spool-pick]');
+    if (!input || !out) return;
+
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      out.hidden = true;
+      if (!file) return;
+      let text;
+      try {
+        const head = await file.slice(0, WINDOW).text();
+        const tail = file.size > WINDOW ? await file.slice(file.size - WINDOW).text() : '';
+        text = head + '\n' + tail;
+      } catch { return; }
+      const m = parse(text);
+      const want = materialKey(m.material);
+      const bits = [];
+      if (m.grams) bits.push(`${Math.round(m.grams)} g`);
+      else if (m.length) bits.push(`${(m.length / 1000).toFixed(1)} m of filament`);
+      if (m.material) bits.push(m.material);
+      if (m.seconds) bits.push(`about ${time(m.seconds)}`);
+      if (!bits.length) return;
+
+      let note = 'Needs ' + bits.join(' · ') + '.';
+      if (pick) {
+        const opts = [...pick.querySelectorAll('.spool-opt[data-material]')];
+        const fits = (o) => !want || o.dataset.material === want;
+        let best = opts.find((o) => o.hasAttribute('data-loaded') && fits(o));
+        if (!best) {
+          const same = opts.filter((o) => want && o.dataset.material === want);
+          same.sort((a, b) => (m.colour ? dist(m.colour, a.dataset.hex) - dist(m.colour, b.dataset.hex) : 0)
+            || Number(a.dataset.left) - Number(b.dataset.left));
+          best = same[0];
+        }
+        if (best) {
+          best.querySelector('input').checked = true;
+          const left = Number(best.dataset.left);
+          if (m.grams && m.grams > left) note += ` The spool picked has ${left} g — not enough.`;
+        } else if (want) {
+          note += ' None of your spools is that material.';
+        }
+      }
+      out.textContent = note;
+      out.hidden = false;
+    });
+  });
+})();

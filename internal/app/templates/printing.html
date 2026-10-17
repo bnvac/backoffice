@@ -26,7 +26,8 @@ printer gets recorded properly and the answer gets worked out.</p>
   {{$pr := .}}
   <li class="printer{{if and $d.Edit (eq $d.Edit.ID .ID)}} editing{{end}}">
     <div class="printer-head">
-      <b class="printer-name">{{.Name}}</b>
+      <a class="printer-name" href="/printing/printers/{{.ID}}">{{.Name}}</a>
+      {{if .Due}}<a class="chip xs bad" href="/printing/printers/{{.ID}}#maintenance">{{.Due}} maintenance due</a>{{end}}
       <div class="actions">
         <a class="btn tiny" href="/printing?edit={{.ID}}#edit">Edit</a>
         <form method="post" action="/printing/printers/{{.ID}}/delete"
@@ -62,6 +63,13 @@ printer gets recorded properly and the answer gets worked out.</p>
     </div>
     {{if .Notes}}<p class="muted small">{{.Notes}}</p>{{end}}
 
+    {{with .Spool}}
+    <div class="loaded-line">
+      <span class="swatch sm" style="--c: {{.Swatch}}" aria-hidden="true"></span>
+      <a href="/filament/{{.ID}}">{{.Label}}</a> <span class="muted">· {{printf "%.0f" .Remaining}} g</span>
+    </div>
+    {{end}}
+
     {{if .Connected}}
     <details class="send">
       <summary class="btn tiny">Send G-code</summary>
@@ -76,6 +84,29 @@ printer gets recorded properly and the answer gets worked out.</p>
             {{range $d.Items}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
           </select>
         </label>
+        {{end}}
+        <p class="gcode-preview muted small" data-gcode-preview hidden></p>
+        {{if $d.Spools}}
+        <fieldset class="spool-pick" data-spool-pick>
+          <legend>Filament <span class="muted">— what it comes off</span></legend>
+          <label class="spool-opt">
+            <input type="radio" name="spool_id" value="" checked>
+            <span class="opt-body">Work it out <span class="muted small">— the loaded spool, or the nearest colour to what it was sliced with</span></span>
+          </label>
+          {{$printer := .ID}}
+          {{range $d.Spools}}
+          <label class="spool-opt" data-material="{{.Material}}" data-hex="{{.Swatch}}" data-left="{{printf "%.0f" .Remaining}}"
+                 {{if eq .PrinterRef $printer}}data-loaded{{end}}>
+            <input type="radio" name="spool_id" value="{{.ID}}">
+            <span class="swatch" style="--c: {{.Swatch}}" aria-hidden="true"></span>
+            <span class="opt-body">{{.Label}} <span class="muted small">{{printf "%.0f" .Remaining}} g{{if eq .PrinterRef $printer}} · loaded{{end}}</span></span>
+          </label>
+          {{end}}
+          <label class="spool-opt">
+            <input type="radio" name="spool_id" value="none">
+            <span class="opt-body">Don't count this one</span>
+          </label>
+        </fieldset>
         {{end}}
         <label class="inline-check"><input type="checkbox" name="start">
           Start printing as soon as it arrives</label>
@@ -103,11 +134,19 @@ printer gets recorded properly and the answer gets worked out.</p>
         <span class="row-name">{{.Name}}</span>
         <span class="muted small">
           to {{.Printer}}{{if .ItemName}} · for <a href="/items/{{.ItemRef}}">{{.ItemName}}</a>{{end}}
-          · {{.SizeLabel}} · {{since .SentAt}}
+          {{if .Estimate}} · {{.Estimate}}{{end}}
+          {{if .Grams}} · {{if .SpoolHex}}<span class="swatch xs" style="--c: {{.SpoolHex}}" aria-hidden="true"></span>{{end}}{{printf "%.0f" .Grams}} g{{if .SpoolName}} of <a href="/filament/{{.SpoolRef}}">{{.SpoolName}}</a>{{end}}{{if .Returned}} (put back){{end}}{{end}}
+          · {{since .SentAt}}
           {{if not .OK}}<br><span class="warn">{{.Error}}</span>{{else if .Started}} · started{{end}}
         </span>
       </span>
     </span>
+    {{if .CanReturn}}
+    <form method="post" action="/printing/jobs/{{.ID}}/return" class="inline"
+          data-confirm="Mark this as never printed?{{if .GivesBack}} {{printf "%.0f" .Grams}} g goes back on {{.SpoolName}}.{{end}} Its hours stop counting towards maintenance.">
+      <button class="btn tiny ghost" type="submit">Didn't print</button>
+    </form>
+    {{end}}
     <a class="btn tiny ghost" href="/printing/jobs/{{.ID}}/file">Download</a>
     <form method="post" action="/printing/jobs/{{.ID}}/resend" class="inline">
       <button class="btn tiny" type="submit">Send again</button>
@@ -244,6 +283,7 @@ printer gets recorded properly and the answer gets worked out.</p>
 
 {{if $d.Rows}}
 <h2>What you can load</h2>
+<p class="muted small"><a href="/filament">Your filament</a> — {{len $d.Spools}} spool{{if ne (len $d.Spools) 1}}s{{end}} on the shelf.</p>
 <p class="muted page-sub">Across every machine you own. Press one for the long answer.</p>
 
 <ul class="mats">
