@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/printing">Printing</a><span class="sep">/</span><span class="here">Filament</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "spool"}}</span>
   <h1>Filament</h1>
   <div class="folder-actions">
     <a class="chip sm" href="/labels/spools">Spool labels</a>
@@ -49,7 +50,7 @@ would use, and weighing a spool on a kitchen scale corrects the rest.</p>
 <p class="empty small">No spools match that. <a href="/filament">Show them all</a>.</p>
 {{end}}
 {{else}}
-<p class="empty small">No filament yet. Add what is on the shelf below — a box of four
+<p class="empty small"><span class="empty-art" aria-hidden="true">{{art "spool"}}</span>No filament yet. Add what is on the shelf below — a box of four
 identical spools is one go.</p>
 {{end}}
 

@@ -4,6 +4,7 @@
 
 <p class="crumb"><a href="/">← Dashboard</a></p>
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "project"}}</span>
   <h1>Projects</h1>
   <div class="folder-actions">
     <details class="inline-form">
@@ -24,7 +25,7 @@
   {{end}}
 </ul>
 {{else}}
-<div class="empty small">
+<div class="empty small"><span class="empty-art" aria-hidden="true">{{art "project"}}</span>
   <p><strong>No projects yet.</strong></p>
   <p class="muted">A project is a parts list for something you're building. Backoffice checks it
     against the shelf and tells you what's missing.</p>

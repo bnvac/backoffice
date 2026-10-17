@@ -30,6 +30,12 @@
   --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 20px -6px rgb(0 0 0 / .45);
   --shadow-lift: 0 2px 4px rgb(0 0 0 / .42), 0 14px 30px -8px rgb(0 0 0 / .55);
 
+  /* Illustrations: drawn in the text's own ink, with copper as the one accent.
+     Copper because it is the subject — traces and solder — and because no
+     state in the app uses it, so a drawing never reads as a warning. */
+  --art-pop: #d08a52;
+  --art-soft: color-mix(in srgb, var(--text) 8%, transparent);
+
   /* Serif for titles, the UI face for anything you read as a label or a
      number. No webfont: the binary has to work on a LAN with no internet. */
   --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -51,6 +57,7 @@
     --ok: #17804a;
     --shadow: 0 1px 2px rgb(16 24 40 / .07), 0 6px 16px -4px rgb(16 24 40 / .1);
     --shadow-lift: 0 2px 5px rgb(16 24 40 / .09), 0 12px 26px -8px rgb(16 24 40 / .16);
+    --art-pop: #b8692f;
   }
 }
 
@@ -67,6 +74,7 @@
   --ok: #17804a;
   --shadow: 0 1px 2px rgb(16 24 40 / .07), 0 6px 16px -4px rgb(16 24 40 / .1);
   --shadow-lift: 0 2px 5px rgb(16 24 40 / .09), 0 12px 26px -8px rgb(16 24 40 / .16);
+  --art-pop: #b8692f;
 }
 
 * { box-sizing: border-box; }
@@ -1563,4 +1571,241 @@ a.printer-name:hover { text-decoration: underline; }
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
   font-weight: 600;
+}
+
+/* --- illustrations ------------------------------------------------------------- */
+
+.art {
+  display: block; width: 100%; height: auto; overflow: visible;
+  fill: none; stroke: currentColor; stroke-width: var(--art-w, 2);
+  stroke-linecap: round; stroke-linejoin: round;
+}
+/* Strokes stay the same thickness at any size, so one drawing works as a
+   32px glyph and as a 300px hero. */
+.art * { vector-effect: non-scaling-stroke; }
+.art .s { fill: var(--art-soft); }
+.art .a { fill: var(--art-pop); }
+.art .ac { stroke: var(--art-pop); }
+.art .f { fill: currentColor; stroke: none; }
+
+/* --- the setup wizard ------------------------------------------------------------ */
+
+/* Moving between steps is a cross-document view transition: each step is its
+   own page and its own form post, and the browser animates between them. The
+   card slides, the rail and the art hold still, so the eye stays put. Browsers
+   without it simply load the next page. */
+@view-transition { navigation: auto; }
+.ob-card { view-transition-name: ob-card; }
+.ob-rail { view-transition-name: ob-rail; }
+::view-transition-old(ob-card) { animation: ob-out .22s ease-in both; }
+::view-transition-new(ob-card) { animation: ob-in .38s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes ob-out { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes ob-in { from { opacity: 0; transform: translateX(36px); } }
+
+.ob { max-width: 980px; margin: 4vh auto 6vh; }
+.ob-card {
+  display: grid; grid-template-columns: minmax(180px, 300px) minmax(0, 1fr); gap: 40px;
+  align-items: start; background: var(--panel); border-radius: calc(var(--radius) + 6px);
+  box-shadow: var(--shadow-lift); padding: 40px 44px 36px;
+}
+.ob-wide { grid-template-columns: minmax(0, 1fr); }
+/* The cover and the last page are a single column of content, not a two-part
+   card, so they are blocks: the card's grid gap would open a hole under every
+   line. */
+.ob-hello, .ob-done { display: block; text-align: center; }
+@media (max-width: 760px) {
+  .ob-card { grid-template-columns: minmax(0, 1fr); padding: 26px 20px 22px; gap: 18px; }
+  .ob-side .ob-art { max-width: 150px; }
+}
+
+.ob-side { position: sticky; top: 90px; }
+.ob-art { color: var(--text); --art-w: 2.2; max-width: 260px; margin: 0 auto; }
+.ob-art-wide { max-width: 420px; margin-bottom: 8px; }
+.ob-art-done { max-width: 150px; }
+
+/* Each part of a step arrives in turn: --i is its place in the order. */
+.ob-title, .ob-lede, .ob-kicker, .ob-form, .ob-actions, .ob-tour > li, .ob-next > li,
+.ob-have, .ob-note {
+  animation: ob-rise .5s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms + 80ms);
+}
+@keyframes ob-rise { from { opacity: 0; transform: translateY(10px); } }
+
+/* The drawing wipes in as if being drawn, then the copper parts settle. */
+.ob-art .art { animation: ob-draw .9s cubic-bezier(.3, .7, .2, 1) both .05s; }
+.ob-art .art .a, .ob-art .art .ac { animation: ob-pop .5s cubic-bezier(.3, 1.5, .5, 1) both .55s;
+  transform-box: fill-box; transform-origin: center; }
+@keyframes ob-draw { from { clip-path: inset(0 100% 0 0); opacity: .3; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes ob-pop { from { opacity: 0; transform: scale(.6); } }
+
+.ob-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 0 0 6px; }
+.ob-title { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.12; margin: 0 0 10px; text-wrap: balance; }
+.ob-lede { color: var(--muted); font-size: 15.5px; line-height: 1.6; max-width: 60ch; margin: 0 0 22px; }
+.ob-hello .ob-lede, .ob-done .ob-lede { margin-inline: auto; }
+.ob-form { margin-top: 4px; }
+.ob-form input:not([type=radio]):not([type=checkbox]), .ob-form textarea, .ob-form select {
+  font-size: 15px; padding: 10px 12px; border-radius: 10px;
+}
+.ob-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 22px; }
+.ob-hello .ob-actions, .ob-done .ob-actions { justify-content: center; }
+.btn.big { min-height: 42px; padding: 10px 20px; font-size: 15px; border-radius: 10px; }
+.btn.primary { transition: transform .12s, filter .12s, box-shadow .12s; }
+.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -6px rgb(0 0 0 / .45); }
+.btn:active { transform: translateY(0) scale(.985); }
+.muted-ink { opacity: .62; font-weight: 400; }
+
+/* The tour on the cover, and the next steps at the end: small cards, each
+   with its section's drawing. */
+.ob-tour, .ob-next { list-style: none; padding: 0; margin: 26px 0 4px; display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); text-align: left; }
+.ob-tour li, .ob-next a {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr); grid-template-rows: auto 1fr;
+  column-gap: 13px; row-gap: 3px; align-items: start; padding: 14px; border-radius: var(--radius);
+  background: var(--panel-2); color: var(--text); text-decoration: none;
+}
+.ob-next a { transition: transform .14s, box-shadow .14s; }
+.ob-next a:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.ob-tour-art { grid-row: span 2; color: var(--text); --art-w: 1.7; width: 52px; }
+.ob-tour b, .ob-next b { font-weight: 600; font-size: 14.5px; }
+.ob-tour span:not(.ob-tour-art), .ob-next span:not(.ob-tour-art) { color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+/* The progress rail: dots joined by a track that fills to the current step. */
+.ob-rail { margin: 0 auto 22px; max-width: 620px; position: relative; padding-top: 2px; }
+.ob-rail ol { list-style: none; margin: 0; padding: 0; display: flex; justify-content: space-between; position: relative; }
+.ob-rail-track { position: absolute; left: 14px; right: 14px; top: 15px; height: 2px; background: var(--line); border-radius: 2px; }
+.ob-rail-fill { display: block; height: 100%; width: var(--fill); background: var(--text); border-radius: 2px;
+  transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.ob-rail li { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); z-index: 1; width: 60px; }
+.ob-dot { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center;
+  background: var(--bg); border: 2px solid var(--line); font-size: 13px; font-weight: 700; color: var(--accent-ink); }
+.r-done .ob-dot { background: var(--text); border-color: var(--text); }
+.r-now .ob-dot { border-color: var(--text); box-shadow: 0 0 0 5px color-mix(in srgb, var(--text) 14%, transparent); }
+.r-now .ob-dot::after { content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--text); }
+.r-now { color: var(--text); font-weight: 600; }
+@media (max-width: 520px) { .ob-rail-label { display: none; } .ob-rail li { width: auto; } }
+
+/* Pill choices instead of selects for the short questions: one tap each. */
+.ob-choice { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 7px; }
+.ob-choice legend { font-size: 13px; padding: 0 0 7px; float: left; width: 100%; }
+.ob-pill { position: relative; display: inline-flex !important; flex-direction: row !important; cursor: pointer; }
+.ob-pill input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ob-pill span { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2);
+  font-size: 14px; transition: background .12s, border-color .12s; }
+.ob-pill input:checked + span { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+.ob-pill input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Printer presets as a grid of cards, picked like the pills. */
+.ob-presets { border: 0; padding: 0; margin: 0; display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.ob-preset { position: relative; cursor: pointer; display: block !important; }
+.ob-preset input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ob-preset span { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; height: 100%;
+  border: 1px solid var(--line); background: var(--panel-2); transition: border-color .12s, transform .12s; }
+.ob-preset span:hover { transform: translateY(-1px); }
+.ob-preset b { font-size: 13.5px; font-weight: 600; }
+.ob-preset small { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ob-preset input:checked + span { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+.ob-preset input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.ob-have { font-size: 13.5px; color: var(--muted); }
+.ob-note { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: var(--radius);
+  background: color-mix(in srgb, var(--art-pop) 10%, var(--panel-2)); margin: 0 0 16px; font-size: 14px; }
+.ob-note-art { width: 44px; flex: none; color: var(--text); --art-w: 1.6; }
+.table-scroll { overflow-x: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .ob-art .art, .ob-art .art .a, .ob-art .art .ac { animation: none; }
+}
+
+/* --- section drawings in the chrome ---------------------------------------------- */
+
+.head-art { width: 44px; flex: none; color: var(--text); --art-w: 1.6;
+  padding: 6px; border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+.folder-icon .art { width: 30px; color: var(--text); --art-w: 1.5; }
+
+.menu-panel.menu-grid { display: grid; grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 4px 10px; min-width: 420px; padding: 8px; }
+@media (max-width: 640px) { .menu-panel.menu-grid { grid-template-columns: 1fr; min-width: 240px; } }
+.menu-group { display: flex; flex-direction: column; }
+.menu-group .menu-label { padding: 6px 10px 3px; }
+.menu-panel a { display: flex !important; align-items: center; gap: 9px; }
+.menu-art { width: 22px; flex: none; color: var(--text); --art-w: 1.4; opacity: .9; }
+
+/* Opening a menu or a disclosure eases in rather than snapping. */
+.menu[open] > .menu-panel, .inline-form[open] > form, .inline-form[open] > .pop {
+  animation: pop-in .16s cubic-bezier(.2, .8, .2, 1) both; transform-origin: top right;
+}
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+
+/* Pages settle in; a flash message slides down to where it lives. */
+main { animation: page-in .28s ease-out both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(5px); } }
+.toast.flash { animation: toast-in .35s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+
+/* Empty states get their section's drawing above the words. */
+.empty-art { display: block; width: 120px; margin: 0 auto 10px; color: var(--muted); --art-w: 1.8; opacity: .9; }
+
+/* --- the assistant ---------------------------------------------------------------- */
+
+.chat { position: fixed; right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 50; }
+.chat-fab {
+  width: 56px; height: 56px; border-radius: 999px; border: 0; cursor: pointer; padding: 12px;
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow-lift);
+  transition: transform .18s cubic-bezier(.3, 1.4, .5, 1), box-shadow .18s;
+}
+.chat-fab:hover { transform: translateY(-2px) scale(1.04); }
+.chat-fab-art { display: block; --art-w: 1.6; }
+.chat.open .chat-fab { transform: scale(.9); opacity: .0; pointer-events: none; }
+
+.chat-panel {
+  position: absolute; right: 0; bottom: 0; width: min(380px, calc(100vw - 36px));
+  height: min(560px, calc(100vh - 110px)); display: flex; flex-direction: column;
+  background: var(--panel); border-radius: 16px; box-shadow: var(--shadow-lift), 0 0 0 1px var(--line);
+  overflow: hidden; transform-origin: bottom right;
+  animation: chat-in .26s cubic-bezier(.2, .9, .3, 1.1) both;
+}
+@keyframes chat-in { from { opacity: 0; transform: translateY(10px) scale(.94); } }
+.chat-head { display: flex; align-items: center; gap: 9px; padding: 10px 10px 10px 14px;
+  border-bottom: 1px solid var(--line); }
+.chat-head > div { display: flex; flex-direction: column; line-height: 1.2; margin-right: auto; }
+.chat-head-art { width: 30px; --art-w: 1.4; color: var(--text); }
+
+.chat-log { list-style: none; margin: 0; padding: 14px; overflow-y: auto; flex: 1;
+  display: flex; flex-direction: column; gap: 9px; scroll-behavior: smooth; }
+.msg { display: flex; flex-direction: column; max-width: 86%; animation: msg-in .22s ease-out both; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } }
+.msg-body { padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-you { align-self: flex-end; }
+.msg-you .msg-body { background: var(--text); color: var(--bg); border-bottom-right-radius: 4px; }
+.msg-neb .msg-body { background: var(--panel-2); border-bottom-left-radius: 4px; }
+.msg-note { align-self: center; max-width: 100%; }
+.msg-note .msg-body { background: none; color: var(--muted); font-size: 12.5px; text-align: center; padding: 2px 6px; }
+.msg-hint .msg-body { color: var(--muted); }
+
+/* Three dots while Neb is thinking. */
+.msg-typing .msg-body { display: flex; gap: 4px; padding: 12px 14px; }
+.msg-typing .msg-body::before, .msg-typing .msg-body::after, .msg-typing .msg-body { position: relative; }
+.msg-typing .msg-body::before, .msg-typing .msg-body::after {
+  content: ""; width: 7px; height: 7px; border-radius: 999px; background: var(--muted);
+  animation: dot 1s ease-in-out infinite;
+}
+.msg-typing .msg-body::after { animation-delay: .2s; }
+@keyframes dot { 0%, 100% { opacity: .3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+
+.msg-pending { margin-top: 6px; padding: 9px 11px; border-radius: 12px; font-size: 13px;
+  background: color-mix(in srgb, var(--art-pop) 12%, var(--panel-2)); display: flex; flex-wrap: wrap;
+  gap: 6px; align-items: center; }
+.msg-pending p { margin: 0 0 4px; flex-basis: 100%; }
+
+.chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); align-items: flex-end; }
+.chat-form textarea { flex: 1; resize: none; min-height: 38px; max-height: 140px; padding: 9px 11px;
+  font: inherit; font-size: 14px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; }
+@media (max-width: 520px) {
+  .chat-panel { position: fixed; inset: auto 8px calc(8px + env(safe-area-inset-bottom, 0px)) 8px;
+    width: auto; height: min(78vh, 600px); }
 }

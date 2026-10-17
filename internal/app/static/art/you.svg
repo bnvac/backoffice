@@ -1,0 +1,6 @@
+<svg class="art" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+<rect class="s" x="20" y="18" width="80" height="60" rx="8"/>
+<path class="a" d="M28 18h64a8 8 0 0 1 8 8v4H20v-4a8 8 0 0 1 8-8z"/>
+<circle cx="43" cy="48" r="9"/>
+<path d="M30 70a13 13 0 0 1 26 0M64 44h26M64 55h20M64 66h24"/>
+</svg>

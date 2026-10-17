@@ -1,0 +1,9 @@
+<svg class="art" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+<rect class="s" x="28" y="14" width="64" height="20" rx="4"/>
+<rect class="s" x="28" y="38" width="64" height="20" rx="4"/>
+<rect class="s" x="28" y="62" width="64" height="20" rx="4"/>
+<circle class="a" cx="40" cy="24" r="3"/>
+<circle class="f" cx="40" cy="48" r="3"/>
+<circle class="f" cx="40" cy="72" r="3"/>
+<path d="M54 24h28M54 48h28M54 72h28M60 82v6M48 88h24"/>
+</svg>

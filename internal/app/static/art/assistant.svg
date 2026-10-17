@@ -1,0 +1,7 @@
+<svg class="art" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+<path class="s" d="M20 16h52a8 8 0 0 1 8 8v24a8 8 0 0 1-8 8H42L28 68V56h-8a8 8 0 0 1-8-8V24a8 8 0 0 1 8-8z"/>
+<path class="a" d="M62 44h36a8 8 0 0 1 8 8v20a8 8 0 0 1-8 8h-4v10L82 80H62a8 8 0 0 1-8-8V52a8 8 0 0 1 8-8z"/>
+<circle class="f" cx="32" cy="36" r="2.6"/>
+<circle class="f" cx="46" cy="36" r="2.6"/>
+<circle class="f" cx="60" cy="36" r="2.6"/>
+</svg>

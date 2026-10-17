@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Orders</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "orders"}}</span>
   <h1>Orders</h1>
   <div class="folder-actions">
     <details class="inline-form">
@@ -53,7 +54,7 @@
   </ul>
 </section>
 {{else}}
-<div class="empty">
+<div class="empty"><span class="empty-art" aria-hidden="true">{{art "orders"}}</span>
   <p><strong>No orders yet.</strong></p>
   <p class="muted">An order is what closes the loop: a project says what it is short of, you buy it,
     and marking the order arrived puts it on the shelf without counting anything by hand.</p>

@@ -210,6 +210,12 @@ func (a *App) handleAddPrinter(w http.ResponseWriter, r *http.Request) {
 	}
 	a.store.Record(a.actor(r), "added a printer", "printer", id, p.Name)
 
+	// From the setup wizard, carry on with the wizard.
+	if next := r.FormValue("next"); next != "" {
+		redirect(w, r, safeNext(next), "Added "+p.Name, "")
+		return
+	}
+
 	// A preset that knows how to talk to the machine still needs its address,
 	// and there is no way to guess one, so go straight to the form for it.
 	if p.LinkKind != "" && p.LinkURL == "" {

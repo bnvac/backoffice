@@ -1,0 +1,6 @@
+<svg class="art" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+<path class="s" d="M60 12l34 18v38L60 86 26 68V30z"/>
+<path class="a" d="M60 48l34-18v38L60 86z"/>
+<path d="M26 30l34 18 34-18M60 48v38"/>
+<path d="M43 21l34 18" stroke-dasharray="3 4"/>
+</svg>

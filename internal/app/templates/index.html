@@ -27,7 +27,7 @@
   {{range $d.Items}}{{template "itemCard" .}}{{end}}
 </ul>
 {{else}}
-<div class="empty">
+<div class="empty"><span class="empty-art" aria-hidden="true">{{art "shelf"}}</span>
   {{if $d.Filtered}}
     <p>Nothing matches that.</p>
     <p><a class="btn" href="/items">Clear filters</a></p>

@@ -895,3 +895,121 @@ document.querySelectorAll('[data-scanner]').forEach((root) => {
     });
   });
 })();
+
+// --- the assistant ---------------------------------------------------------------
+// A chat with Neb. The server does all the talking to Neb; this only draws the
+// thread and posts what you type. Open or closed is remembered for the tab.
+(() => {
+  const root = document.querySelector('[data-chat]');
+  if (!root) return;
+  root.hidden = false;
+  const panel = root.querySelector('.chat-panel');
+  const log = root.querySelector('[data-chat-log]');
+  const form = root.querySelector('[data-chat-form]');
+  const input = form.querySelector('textarea');
+  const fab = root.querySelector('.chat-fab');
+  let loaded = false, busy = false;
+
+  const store = {
+    get: () => { try { return sessionStorage.getItem('chat-open') === '1'; } catch { return false; } },
+    set: (v) => { try { sessionStorage.setItem('chat-open', v ? '1' : '0'); } catch {} },
+  };
+
+  function bubble(m) {
+    const li = document.createElement('li');
+    li.className = 'msg msg-' + m.role;
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.textContent = m.text; // plain text: nothing Neb says is ever parsed as HTML
+    li.append(body);
+    if (m.pending) {
+      const ask = document.createElement('div');
+      ask.className = 'msg-pending';
+      const q = document.createElement('p');
+      q.textContent = m.pending;
+      const yes = Object.assign(document.createElement('button'), { type: 'button', className: 'btn tiny primary', textContent: 'Allow' });
+      const no = Object.assign(document.createElement('button'), { type: 'button', className: 'btn tiny', textContent: 'Don’t' });
+      const answer = (word) => { ask.remove(); send(word); };
+      yes.onclick = () => answer('yes');
+      no.onclick = () => answer('no');
+      ask.append(q, yes, no);
+      li.append(ask);
+    }
+    log.append(li);
+    log.scrollTop = log.scrollHeight;
+    return li;
+  }
+
+  function greet() {
+    if (log.children.length) return;
+    bubble({ role: 'neb', text: 'Hi — ask me anything about your shelf, your printers or how to do something here. I can look things up for you, and I’ll ask before changing anything.' })
+      .classList.add('msg-hint');
+  }
+
+  async function load() {
+    if (loaded) return;
+    loaded = true;
+    try {
+      const res = await fetch('/assistant', { headers: { Accept: 'application/json' } });
+      const data = await res.json();
+      if (!res.ok) { bubble({ role: 'note', text: data.error || 'The assistant is not available.' }); return; }
+      (data.messages || []).forEach((m, i, all) => bubble({ ...m, pending: i === all.length - 1 ? m.pending : '' }));
+    } catch { bubble({ role: 'note', text: 'Could not load the conversation.' }); }
+    greet();
+  }
+
+  async function send(text) {
+    if (busy || !text.trim()) return;
+    busy = true;
+    log.querySelector('.msg-hint')?.remove();
+    bubble({ role: 'you', text });
+    const typing = bubble({ role: 'neb', text: '' });
+    typing.classList.add('msg-typing');
+    form.querySelector('button').disabled = true;
+    try {
+      const res = await fetch('/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      typing.remove();
+      if (data.message) bubble(data.message);
+      else bubble({ role: 'note', text: data.error || 'Something went wrong.' });
+    } catch {
+      typing.remove();
+      bubble({ role: 'note', text: 'Could not reach the server.' });
+    } finally {
+      busy = false;
+      form.querySelector('button').disabled = false;
+      input.focus();
+    }
+  }
+
+  function setOpen(open) {
+    panel.hidden = !open;
+    root.classList.toggle('open', open);
+    fab.setAttribute('aria-expanded', String(open));
+    store.set(open);
+    if (open) { load(); setTimeout(() => input.focus(), 50); }
+  }
+
+  root.querySelectorAll('[data-chat-toggle]').forEach((b) => b.addEventListener('click', () => setOpen(panel.hidden)));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) setOpen(false); });
+  form.addEventListener('submit', (e) => { e.preventDefault(); const t = input.value; input.value = ''; send(t); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px'; });
+  root.querySelector('[data-chat-forget]').addEventListener('click', async () => {
+    await fetch('/assistant/forget', { method: 'POST' }).catch(() => {});
+    log.replaceChildren();
+    bubble({ role: 'note', text: 'Cleared here. Neb keeps its own memory of the conversation.' });
+  });
+
+  // On the setup pages the assistant opens itself once, to say hello.
+  if (store.get() || (location.pathname === '/welcome' && !sessionStorage.getItem('chat-greeted'))) {
+    try { sessionStorage.setItem('chat-greeted', '1'); } catch {}
+    setOpen(true);
+  }
+})();

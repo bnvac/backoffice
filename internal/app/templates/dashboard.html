@@ -140,7 +140,7 @@
     {{if $d.Unfiled}}
     <li class="folder-card unfiled">
       <a href="/items?unfiled=1">
-        <div class="folder-icon">⌂</div>
+        <div class="folder-icon">{{art "shelf"}}</div>
         <div class="folder-body">
           <b>Unfiled</b>
           <span class="muted">{{$d.Unfiled}} item{{if ne $d.Unfiled 1}}s{{end}} in no folder</span>
@@ -200,7 +200,7 @@
     {{if .Cover}}
       <img class="folder-cover" src="/media/thumb/{{.Cover}}" alt="" loading="lazy">
     {{else}}
-      <div class="folder-icon">🗀</div>
+      <div class="folder-icon">{{art "shelf"}}</div>
     {{end}}
     <div class="folder-body">
       <b>{{.Name}}</b>

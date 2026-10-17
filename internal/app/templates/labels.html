@@ -5,7 +5,8 @@
 <div class="noprint">
   <p class="crumb"><a href="/items">← All items</a></p>
   <div class="folder-head">
-    <h1>Labels</h1>
+    <span class="head-art" aria-hidden="true">{{art "labels"}}</span>
+  <h1>Labels</h1>
     <div class="folder-actions">
       <a class="chip sm{{if eq $d.Code "qr"}} on{{end}}" href="{{$d.Query.LabelsURL "qr"}}">QR</a>
       <a class="chip sm{{if eq $d.Code "barcode"}} on{{end}}" href="{{$d.Query.LabelsURL "barcode"}}">Barcode</a>

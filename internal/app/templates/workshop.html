@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Workshop</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "workshop"}}</span>
   <h1>Workshop</h1>
   <div class="folder-actions">
     <a class="chip sm" href="/profile">Profile</a>
@@ -75,7 +76,7 @@ Rigol DS1054Z oscilloscope"></textarea>
   {{end}}
 </ul>
 {{else}}
-<p class="empty">No tools yet. Paste a list above, or add one at a time below.</p>
+<p class="empty"><span class="empty-art" aria-hidden="true">{{art "workshop"}}</span>No tools yet. Paste a list above, or add one at a time below.</p>
 {{end}}
 
 <details class="inline-form panel">

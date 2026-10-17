@@ -25,7 +25,9 @@ type page struct {
 	User     *User // nil when signed in with the shared password, or with none
 	Flash    string
 	Error    string
-	Bare     bool // hides the nav, for the sign-in page
+	Bare     bool   // hides the nav, for the sign-in page
+	Neb      bool   // the assistant is on, so the chat button is drawn
+	NebOff   string // why it is not, when Neb is running but cannot be offered
 	Data     any
 
 	// For the account menu in the top right.
@@ -77,12 +79,22 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, name string, title 
 		User:     me,
 		Flash:    r.URL.Query().Get("flash"),
 		Error:    r.URL.Query().Get("error"),
-		Bare:     name == "login.html",
-		Data:     data,
+		// Sign-in and the setup wizard both stand alone: no section nav, so
+		// the one thing on the page is the thing to do.
+		Bare: name == "login.html" || name == "welcome.html",
+		Data: data,
+		Neb:  a.assistantOn(),
 
-		WhoAmI:         a.whoAmI(r),
+		WhoAmI:        a.whoAmI(r),
 		Others:         a.otherAccounts(me),
 		CanManageUsers: me == nil || me.Admin,
+	}
+	// Neb running but not offered is worth explaining where a model is chosen,
+	// and nowhere else.
+	if name == "welcome.html" && !p.Neb && a.neb != nil && a.neb.Up() && !a.auth.Enabled() {
+		p.NebOff = "Neb is running on this machine, but the assistant stays off until this install " +
+			"asks people to sign in — Neb can run commands, and with no password anyone on the " +
+			"network could reach it. Set AUTH_PASSWORD, or add an account under Health & backup."
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.tmpl.ExecuteTemplate(w, name, p); err != nil {

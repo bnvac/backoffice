@@ -5,7 +5,8 @@
 <nav class="crumb"><a href="/items">All items</a><span class="sep">/</span>
   <a href="/items/{{$it.ID}}">{{$it.Name}}</a><span class="sep">/</span><span class="here">Cases &amp; models</span></nav>
 
-<div class="folder-head"><h1>A case for {{$it.Name}}</h1></div>
+<div class="folder-head"><span class="head-art" aria-hidden="true">{{art "prints"}}</span>
+  <h1>A case for {{$it.Name}}</h1></div>
 
 <form class="search" method="get" action="/items/{{$it.ID}}/models">
   <input type="search" name="q" value="{{$d.Query}}" autocomplete="off"

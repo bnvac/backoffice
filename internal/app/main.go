@@ -39,6 +39,8 @@ type Config struct {
 	// search works out of the box either way.
 	ThingiverseToken string
 	AllowPrivate     bool // let URL imports reach LAN addresses
+	// Where Neb, the assistant, answers. Loopback only; "off" disables it.
+	NebURL string
 }
 
 func configFromEnv() Config {
@@ -48,6 +50,7 @@ func configFromEnv() Config {
 		Password: os.Getenv("AUTH_PASSWORD"),
 		Title:    env("SITE_TITLE", "Backoffice"),
 		BaseURL:  os.Getenv("BASE_URL"),
+		NebURL:   env("NEB_URL", "http://127.0.0.1:7000"),
 		// Credentials come from the environment and are never written to the
 		// database, the templates, or the logs.
 		NexarID:          os.Getenv("NEXAR_CLIENT_ID"),
@@ -90,6 +93,7 @@ type App struct {
 	// three orders of magnitude.
 	gcode    *Blobs
 	firmware *Blobs
+	neb      *Neb // nil when the assistant is not configured
 	tmpl     *template.Template
 	auth     *Auth
 	fetcher  *Fetcher
@@ -157,6 +161,7 @@ func Run() {
 		photos:    photos,
 		gcode:     gcode,
 		firmware:  firmware,
+		neb:       NewNeb(cfg.NebURL),
 		tmpl:      mustTemplates(),
 		auth:      auth,
 		fetcher:   fetcher,
@@ -254,6 +259,12 @@ func (a *App) routes() http.Handler {
 
 	// Onboarding, the profile, and the workshop it describes.
 	protected.HandleFunc("GET /welcome", a.handleWelcome)
+
+	// The assistant. JSON only, same-origin only, and refused outright unless
+	// this install requires sign-in — see handlers_assistant.go.
+	protected.HandleFunc("GET /assistant", a.handleAssistantHistory)
+	protected.HandleFunc("POST /assistant", a.handleAssistant)
+	protected.HandleFunc("POST /assistant/forget", a.handleAssistantForget)
 	protected.HandleFunc("POST /welcome/finish", a.handleFinishOnboarding)
 	protected.HandleFunc("GET /profile", a.handleProfile)
 	protected.HandleFunc("POST /profile", a.handleSaveProfile)
@@ -475,6 +486,7 @@ func templateFuncs() template.FuncMap {
 			}
 		},
 		"add":   func(a, b int) int { return a + b },
+		"art":   art,
 		"money": func(amount float64) string { return formatMoney(amount, "USD") },
 
 		// dict lets a page pass several named values into a shared partial.

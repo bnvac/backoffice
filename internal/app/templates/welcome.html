@@ -2,147 +2,277 @@
 {{template "top" .}}
 {{$d := .Data}}
 
-<div class="wizard">
-  <ol class="steps">
-    <li{{if eq $d.Step "you"}} class="on"{{end}}>Who you are</li>
-    <li{{if or (eq $d.Step "tools") (eq $d.Step "review")}} class="on"{{end}}>What you have</li>
-    <li{{if eq $d.Step "ai"}} class="on"{{end}}>A model, maybe</li>
-    <li{{if eq $d.Step "done"}} class="on"{{end}}>Done</li>
+{{/* The setup wizard. Each step is its own page and every button is a plain
+     form post, so it works with script off; the motion between steps is the
+     browser's own cross-document view transition, which is CSS alone. */}}
+<div class="ob{{if eq $d.Step "hello"}} ob-cover{{end}}">
+
+{{with $d.Rail}}
+<nav class="ob-rail" aria-label="Setup progress" style="--fill: {{$d.RailPercent}}%">
+  <span class="ob-rail-track" aria-hidden="true"><span class="ob-rail-fill"></span></span>
+  <ol>
+    {{range .}}
+    <li class="r-{{.State}}" {{if eq .State "now"}}aria-current="step"{{end}}>
+      <span class="ob-dot" aria-hidden="true">{{if eq .State "done"}}✓{{end}}</span>
+      <span class="ob-rail-label">{{.Label}}</span>
+    </li>
+    {{end}}
   </ol>
+</nav>
+{{end}}
 
-{{if eq $d.Step "you"}}
-  <h1>Let's set up your bench</h1>
-  <p class="lede">Three questions, all skippable. None of it leaves this machine.</p>
+{{if eq $d.Step "hello"}}
+{{/* --- the cover --------------------------------------------------------- */}}
+<section class="ob-card ob-hello">
+  <div class="ob-art ob-art-wide">{{art "bench"}}</div>
+  <h1 class="ob-title" style="--i:1">Your bench, organised</h1>
+  <p class="ob-lede" style="--i:2">Backoffice keeps track of the parts in your drawers, the
+  tools on your bench and the projects in between — and tells you what you can build with
+  what you already own. It runs on your own machine. Nothing leaves it unless you ask.</p>
 
-  <form method="post" action="/profile" class="stack">
-    <input type="hidden" name="next" value="/welcome?step=tools">
-    <label>What should I call you?
-      <input name="name" value="{{$d.Profile.Name}}" placeholder="Ben" autofocus>
-    </label>
-    <label>Where do you work?
-      <input name="bench" value="{{$d.Profile.Bench}}" placeholder="garage bench, spare room, kitchen table">
-      <small class="muted">Only used to make suggestions sound less generic.</small>
-    </label>
-    <label>How would you describe yourself?
-      <select name="skill">
-        <option value=""{{if eq $d.Profile.Skill ""}} selected{{end}}>— rather not say —</option>
-        <option value="just starting"{{if eq $d.Profile.Skill "just starting"}} selected{{end}}>Just starting</option>
-        <option value="comfortable"{{if eq $d.Profile.Skill "comfortable"}} selected{{end}}>Comfortable with a soldering iron</option>
-        <option value="experienced"{{if eq $d.Profile.Skill "experienced"}} selected{{end}}>Experienced — I design boards</option>
-      </select>
-    </label>
-    <label>What are you into?
-      <textarea name="interests" rows="2" placeholder="home automation, retro computing, audio, robots">{{$d.Profile.Interests}}</textarea>
-      <small class="muted">This steers the idea board later.</small>
-    </label>
-    <label>Units
-      <select name="units">
-        <option value="mm"{{if ne $d.Profile.Units "in"}} selected{{end}}>Millimetres</option>
-        <option value="in"{{if eq $d.Profile.Units "in"}} selected{{end}}>Inches</option>
-      </select>
-    </label>
-    <div class="actions">
-      <button class="btn primary" type="submit">Next</button>
-      <a class="btn" href="/welcome?step=tools">Skip</a>
-    </div>
-  </form>
+  <ul class="ob-tour">
+    <li style="--i:3"><span class="ob-tour-art">{{art "shelf"}}</span>
+      <b>Every part, findable</b><span>Photos, counts and drawers. Paste a shop link and it fills itself in.</span></li>
+    <li style="--i:4"><span class="ob-tour-art">{{art "project"}}</span>
+      <b>Projects that check the shelf</b><span>A parts list that knows what is missing, a checklist, and the wiring drawn.</span></li>
+    <li style="--i:5"><span class="ob-tour-art">{{art "idea"}}</span>
+      <b>Ideas from what you own</b><span>It reads the drawers and suggests things you could build tonight.</span></li>
+    <li style="--i:6"><span class="ob-tour-art">{{art "printer"}}</span>
+      <b>The printer, joined up</b><span>Send prints, know which filament it will take, and when it needs looking after.</span></li>
+    <li style="--i:7"><span class="ob-tour-art">{{art "spool"}}</span>
+      <b>Filament in grams</b><span>Every print comes off the right spool. Pick spools by colour.</span></li>
+    <li style="--i:8"><span class="ob-tour-art">{{art "chip"}}</span>
+      <b>Boards and machines</b><span>What firmware is on which board, and what is running in the cupboard.</span></li>
+  </ul>
+
+  <div class="ob-actions" style="--i:9">
+    <a class="btn primary big" href="/welcome?step=you">Set it up <span class="muted-ink">— about two minutes</span></a>
+    <form method="post" action="/welcome/finish" class="inline">
+      <button class="btn ghost" type="submit">Skip, I'll look around</button>
+    </form>
+  </div>
+</section>
+
+{{else if eq $d.Step "you"}}
+{{/* --- you ------------------------------------------------------------------ */}}
+<section class="ob-card">
+  <div class="ob-side"><div class="ob-art">{{art "you"}}</div></div>
+  <div class="ob-main">
+    <p class="ob-kicker" style="--i:1">Step 1 of 4</p>
+    <h1 class="ob-title" style="--i:2">First, a little about you</h1>
+    <p class="ob-lede" style="--i:3">All of it is optional. It only makes suggestions sound
+    less generic, and none of it leaves this machine.</p>
+
+    <form method="post" action="/profile" class="stack ob-form" style="--i:4">
+      <input type="hidden" name="next" value="/welcome?step=tools">
+      <label>What should I call you?
+        <input name="name" value="{{$d.Profile.Name}}" placeholder="Ben" autofocus autocomplete="given-name">
+      </label>
+      <label>Where do you work?
+        <input name="bench" value="{{$d.Profile.Bench}}" placeholder="garage bench, spare room, kitchen table">
+      </label>
+      <fieldset class="ob-choice">
+        <legend>How would you describe yourself?</legend>
+        {{range $v := slice "just starting" "comfortable" "experienced"}}
+        <label class="ob-pill">
+          <input type="radio" name="skill" value="{{$v}}" {{if eq $d.Profile.Skill $v}}checked{{end}}>
+          <span>{{if eq $v "just starting"}}Just starting{{else if eq $v "comfortable"}}Comfortable with an iron{{else}}I design boards{{end}}</span>
+        </label>
+        {{end}}
+      </fieldset>
+      <label>What are you into?
+        <input name="interests" value="{{$d.Profile.Interests}}" placeholder="home automation, retro computing, audio, robots">
+        <small class="muted">This steers the idea board.</small>
+      </label>
+      <fieldset class="ob-choice">
+        <legend>Units</legend>
+        <label class="ob-pill"><input type="radio" name="units" value="mm" {{if ne $d.Profile.Units "in"}}checked{{end}}><span>Millimetres</span></label>
+        <label class="ob-pill"><input type="radio" name="units" value="in" {{if eq $d.Profile.Units "in"}}checked{{end}}><span>Inches</span></label>
+      </fieldset>
+      <div class="ob-actions">
+        <button class="btn primary big" type="submit">Continue</button>
+        <a class="btn ghost" href="/welcome?step=tools">Skip</a>
+      </div>
+    </form>
+  </div>
+</section>
 
 {{else if eq $d.Step "tools"}}
-  <h1>What have you got to work with?</h1>
-  <p class="lede">Paste your tools however they are already written. Bullets, headings,
-  model numbers, one per line or all on one line — it gets sorted out and you get to
-  check it before anything is saved.</p>
+{{/* --- tools ---------------------------------------------------------------- */}}
+<section class="ob-card">
+  <div class="ob-side"><div class="ob-art">{{art "workshop"}}</div></div>
+  <div class="ob-main">
+    <p class="ob-kicker" style="--i:1">Step 2 of 4</p>
+    <h1 class="ob-title" style="--i:2">What have you got to work with?</h1>
+    <p class="ob-lede" style="--i:3">Paste your tools however they are already written —
+    bullets, headings, model numbers, all on one line. It gets sorted out, and you check it
+    before anything is saved.</p>
 
-  <form method="post" action="/workshop/interpret" class="stack">
-    <input type="hidden" name="wizard" value="1">
-    <textarea name="raw" rows="12" autofocus placeholder="Prusa MK4 (250x210x220)
+    <form method="post" action="/workshop/interpret" class="stack ob-form" style="--i:4">
+      <input type="hidden" name="wizard" value="1">
+      <textarea name="raw" rows="9" autofocus placeholder="Elegoo Neptune 4 (225x225x265)
 soldering iron — hakko fx888d
 digital calipers
 Rigol DS1054Z oscilloscope
-hot air rework station
 bench power supply 30V 5A
-wire strippers
-dupont crimper
-label printer">{{$d.Raw}}</textarea>
-    <div class="actions">
-      <button class="btn primary" type="submit">Read that</button>
-      <a class="btn" href="/welcome?step=ai">Skip</a>
-    </div>
-  </form>
-
-  {{if $d.Tools}}
-  <p class="muted">{{len $d.Tools}} already in the workshop.</p>
-  {{end}}
+wire strippers">{{$d.Raw}}</textarea>
+      <div class="ob-actions">
+        <button class="btn primary big" type="submit">Read that</button>
+        <a class="btn ghost" href="/welcome?step=printer">Skip</a>
+        {{if $d.Tools}}<span class="muted small">{{len $d.Tools}} already in the workshop.</span>{{end}}
+      </div>
+    </form>
+  </div>
+</section>
 
 {{else if or (eq $d.Step "review") (eq $d.Step "review-only")}}
-  <h1>Here's what I made of that</h1>
-  <p class="lede">Untick anything wrong, fix any kind I got backwards. Nothing has been
-  saved yet.</p>
+{{/* --- review the tools ------------------------------------------------------ */}}
+<section class="ob-card ob-wide">
+  <div class="ob-main">
+    <p class="ob-kicker" style="--i:1">Step 2 of 4</p>
+    <h1 class="ob-title" style="--i:2">Here's what I made of that</h1>
+    <p class="ob-lede" style="--i:3">Untick anything wrong and fix any kind I got backwards.
+    Nothing has been saved yet.</p>
 
-  <form method="post" action="/workshop/confirm">
-    {{if eq $d.Step "review"}}<input type="hidden" name="wizard" value="1">{{end}}
-    <table class="grid-table">
-      <thead><tr><th></th><th>Tool</th><th>Kind</th><th>Detail</th><th>From</th></tr></thead>
-      <tbody>
-        {{range $i, $t := $d.Parsed}}
-        <tr>
-          <td><input type="checkbox" name="keep" value="{{$i}}" checked></td>
-          <td><input name="name" value="{{$t.Name}}" size="26"></td>
-          <td>
-            <select name="kind">
-              {{range $d.Kinds}}
-              <option value="{{.Slug}}"{{if eq .Slug $t.Kind}} selected{{end}}>{{.Label}}</option>
-              {{end}}
-            </select>
-          </td>
-          <td><input name="detail" value="{{$t.Detail}}" size="16" placeholder="—"></td>
-          <td class="muted small">{{$t.Raw}}</td>
-        </tr>
+    <form method="post" action="/workshop/confirm" style="--i:4" class="ob-form">
+      {{if eq $d.Step "review"}}<input type="hidden" name="wizard" value="1">{{end}}
+      <div class="table-scroll">
+      <table class="grid-table">
+        <thead><tr><th><span class="sr-only">Keep</span></th><th>Tool</th><th>Kind</th><th>Detail</th><th>From</th></tr></thead>
+        <tbody>
+          {{range $i, $t := $d.Parsed}}
+          <tr>
+            <td><input type="checkbox" name="keep" value="{{$i}}" checked aria-label="Keep {{$t.Name}}"></td>
+            <td><input name="name" value="{{$t.Name}}" size="26" aria-label="Tool name"></td>
+            <td>
+              <select name="kind" aria-label="Kind of tool">
+                {{range $d.Kinds}}
+                <option value="{{.Slug}}"{{if eq .Slug $t.Kind}} selected{{end}}>{{.Label}}</option>
+                {{end}}
+              </select>
+            </td>
+            <td><input name="detail" value="{{$t.Detail}}" size="16" placeholder="—" aria-label="Detail"></td>
+            <td class="muted small">{{$t.Raw}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      </div>
+      <div class="ob-actions">
+        <button class="btn primary big" type="submit">Add {{len $d.Parsed}} to the workshop</button>
+        <a class="btn ghost" href="{{if eq $d.Step "review"}}/welcome?step=tools{{else}}/workshop{{end}}">Back</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+{{else if eq $d.Step "printer"}}
+{{/* --- the printer ------------------------------------------------------------ */}}
+<section class="ob-card">
+  <div class="ob-side"><div class="ob-art">{{art "printer"}}</div></div>
+  <div class="ob-main">
+    <p class="ob-kicker" style="--i:1">Step 3 of 4</p>
+    <h1 class="ob-title" style="--i:2">Got a 3D printer?</h1>
+    <p class="ob-lede" style="--i:3">Pick yours and it fills in the bed size, temperatures and
+    nozzle — that is what decides which filaments it can take and whether a case will fit.
+    If it is on the network, give it the address and prints can be sent straight to it.</p>
+
+    {{with $d.Printers}}
+    <p class="ob-have" style="--i:4">{{range $i, $p := .}}{{if $i}}, {{end}}<b>{{$p.Name}}</b>{{end}} already added.</p>
+    {{end}}
+
+    <form method="post" action="/printing/printers" class="stack ob-form" style="--i:4">
+      <input type="hidden" name="next" value="/welcome?step=ai">
+      <fieldset class="ob-presets">
+        <legend class="sr-only">Printer</legend>
+        {{range $i, $p := $d.PrinterPresets}}
+        <label class="ob-preset">
+          <input type="radio" name="preset" value="{{$p.Name}}" {{if eq $i 0}}required{{end}}>
+          <span><b>{{$p.Name}}</b><small>{{$p.Bed}}{{if $p.Enclosed}} · enclosed{{end}}</small></span>
+        </label>
         {{end}}
-      </tbody>
-    </table>
-    <div class="actions">
-      <button class="btn primary" type="submit">Add {{len $d.Parsed}} to the workshop</button>
-      <a class="btn" href="{{if eq $d.Step "review"}}/welcome?step=tools{{else}}/workshop{{end}}">Back</a>
-    </div>
-  </form>
+      </fieldset>
+      <label>Its address on the network <span class="muted">— optional; a Neptune 4 answers on port 7125</span>
+        <input name="link_url" inputmode="url" autocomplete="off" placeholder="http://192.168.1.50:7125">
+      </label>
+      <p class="muted small">Not on the list? Pick the closest and correct it on the Printing page,
+      where every figure can be changed.</p>
+      <div class="ob-actions">
+        <button class="btn primary big" type="submit">Add it</button>
+        <a class="btn ghost" href="/welcome?step=ai">{{if $d.Printers}}Continue{{else}}No printer — skip{{end}}</a>
+      </div>
+    </form>
+  </div>
+</section>
 
 {{else if eq $d.Step "ai"}}
-  <h1>Plug in a model — or don't</h1>
-  <p class="lede">Everything here works without one. The idea board has a suggester that
-  reads your shelf directly and needs no network at all. A model is for the ideas you
-  would not have thought of.</p>
+{{/* --- a model / the assistant ----------------------------------------------- */}}
+<section class="ob-card">
+  <div class="ob-side"><div class="ob-art">{{art "assistant"}}</div></div>
+  <div class="ob-main">
+    <p class="ob-kicker" style="--i:1">Step 4 of 4</p>
+    <h1 class="ob-title" style="--i:2">A model, if you want one</h1>
+    <p class="ob-lede" style="--i:3">Everything works without one — the idea board reads your
+    shelf directly and needs no network at all. A model adds the ideas you would not have
+    thought of. A local one through Ollama keeps everything on this machine.</p>
 
-  {{if $d.Providers}}
-    <ul class="plain">
-      {{range $d.Providers}}
-      <li>{{.Name}} — {{.KindLabel}}{{if .Model}}, {{.Model}}{{end}}
-        {{if .Active}}<span class="pill ok">in use</span>{{end}}</li>
-      {{end}}
-    </ul>
-    <p><a class="btn" href="/settings/ai">Manage endpoints</a></p>
-  {{end}}
+    {{if .Neb}}
+    <div class="ob-note" style="--i:4">
+      <span class="ob-note-art">{{art "assistant"}}</span>
+      <div><b>Your assistant is here.</b> Neb is running on this machine, so the chat button
+      in the corner can answer questions about your shelf and walk you through the rest.</div>
+    </div>
+    {{else if .NebOff}}
+    <div class="ob-note" style="--i:4">
+      <span class="ob-note-art">{{art "assistant"}}</span>
+      <div>{{.NebOff}}</div>
+    </div>
+    {{end}}
 
-  {{template "providerForm" dict "Presets" $d.Presets "Wizard" true}}
+    {{if $d.Providers}}
+      <ul class="plain ob-have" style="--i:4">
+        {{range $d.Providers}}
+        <li>{{.Name}} — {{.KindLabel}}{{if .Model}}, {{.Model}}{{end}}
+          {{if .Active}}<span class="pill ok">in use</span>{{end}}</li>
+        {{end}}
+      </ul>
+    {{end}}
 
-  <div class="actions">
-    <form method="post" action="/welcome/finish"><button class="btn primary" type="submit">Finish</button></form>
-    <a class="btn" href="/settings/ai">Set it up properly later</a>
+    <div class="ob-form" style="--i:5">
+      {{template "providerForm" dict "Presets" $d.Presets "Wizard" true}}
+    </div>
+
+    <div class="ob-actions" style="--i:6">
+      <a class="btn primary big" href="/welcome?step=done">Continue</a>
+      <a class="btn ghost" href="/settings/ai">Set it up later</a>
+    </div>
   </div>
+</section>
 
 {{else}}
-  <h1>That's the setup done</h1>
-  <p class="lede">Nothing else needs configuring. Here is what to do next.</p>
-  <ul class="next-steps">
-    <li><a href="/items/new">Add your first part</a> — or scan a label if you have one.
-      {{if $d.Items}}<span class="muted">You have {{$d.Items}} already.</span>{{end}}</li>
-    <li><a href="/workshop">Check the workshop</a> — {{len $d.Tools}} tool{{if ne (len $d.Tools) 1}}s{{end}} recorded.</li>
-    <li><a href="/ideas">Open the idea board</a> — it will tell you what you can build tonight.</li>
+{{/* --- done ------------------------------------------------------------------- */}}
+<section class="ob-card ob-done">
+  <div class="ob-art ob-art-done">{{art "done"}}</div>
+  <h1 class="ob-title" style="--i:1">{{if $d.Profile.Name}}You're set up, {{$d.Profile.Name}}{{else}}You're set up{{end}}</h1>
+  <p class="ob-lede" style="--i:2">Nothing else needs configuring. Here is where most people start.</p>
+
+  <ul class="ob-next">
+    <li style="--i:3"><a href="/items/new"><span class="ob-tour-art">{{art "shelf"}}</span>
+      <b>Add your first part</b><span>{{if $d.Items}}You have {{$d.Items}} already.{{else}}Paste a shop link and it fills itself in.{{end}}</span></a></li>
+    <li style="--i:4"><a href="/filament"><span class="ob-tour-art">{{art "spool"}}</span>
+      <b>Add your filament</b><span>A box of four spools is one go.</span></a></li>
+    <li style="--i:5"><a href="/ideas"><span class="ob-tour-art">{{art "idea"}}</span>
+      <b>Open the idea board</b><span>What can you build tonight?</span></a></li>
+    <li style="--i:6"><a href="/labels"><span class="ob-tour-art">{{art "labels"}}</span>
+      <b>Print some labels</b><span>Scan a drawer with your phone and it opens.</span></a></li>
   </ul>
-  <form method="post" action="/welcome/finish">
-    <button class="btn primary" type="submit">Take me to the dashboard</button>
+
+  <form method="post" action="/welcome/finish" class="ob-actions" style="--i:7">
+    <button class="btn primary big" type="submit">Take me to the dashboard</button>
   </form>
+</section>
 {{end}}
+
 </div>
 
 {{template "bottom" .}}

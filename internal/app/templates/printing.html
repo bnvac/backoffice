@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Printing</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "printer"}}</span>
   <h1>Printing</h1>
   <div class="folder-actions">
     <a class="chip sm" href="/workshop">Workshop</a>
@@ -120,7 +121,7 @@ printer gets recorded properly and the answer gets worked out.</p>
   {{end}}
 </ul>
 {{else}}
-<p class="empty small">No printers yet. Add one below and the filament list fills itself in.</p>
+<p class="empty small"><span class="empty-art" aria-hidden="true">{{art "printer"}}</span>No printers yet. Add one below and the filament list fills itself in.</p>
 {{end}}
 
 {{with $d.Jobs}}

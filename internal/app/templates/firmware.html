@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Firmware</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "chip"}}</span>
   <h1>Firmware</h1>
   <div class="folder-actions"><a class="chip sm" href="/machines">Machines</a></div>
 </div>
@@ -14,7 +15,7 @@ the greenhouse running what, and keeps the image so a dead board can be flashed 
 year without finding the source.</p>
 
 {{if $d.Flashes}}
-<table class="grid-table flashes">
+<div class="table-scroll"><table class="grid-table flashes">
   <thead>
     <tr><th>Board</th><th>Which</th><th>Running</th><th>Since</th><th>Image</th></tr>
   </thead>
@@ -33,9 +34,9 @@ year without finding the source.</p>
     </tr>
     {{end}}
   </tbody>
-</table>
+</table></div>
 {{else}}
-<p class="empty small">Nothing recorded yet. Flash something, then say so below.</p>
+<p class="empty small"><span class="empty-art" aria-hidden="true">{{art "chip"}}</span>Nothing recorded yet. Flash something, then say so below.</p>
 {{end}}
 
 <details class="panel" {{if not $d.Flashes}}open{{end}}>

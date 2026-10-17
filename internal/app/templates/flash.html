@@ -6,6 +6,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><a href="/firmware">Firmware</a><span class="sep">/</span><span class="here">{{$f.Firmware}}</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "chip"}}</span>
   <h1>{{$f.Firmware}}{{if $f.Version}} <span class="muted">{{$f.Version}}</span>{{end}}</h1>
   <div class="folder-actions">
     <form method="post" action="/firmware/{{$f.ID}}/delete" data-confirm="Forget this record?{{if $f.HasFile}} The image stays, since other records may share it.{{end}}">

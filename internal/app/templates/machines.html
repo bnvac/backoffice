@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Machines</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "machine"}}</span>
   <h1>Machines</h1>
   <div class="folder-actions"><a class="chip sm" href="/firmware">Firmware</a></div>
 </div>
@@ -54,7 +55,7 @@ switch” has an answer that is not in your head.</p>
 <p class="muted small">Up or down is a TCP connection to the port shown, made from the machine
 running Backoffice. Something it cannot reach may still be fine from your laptop.</p>
 {{else}}
-<p class="empty small">No machines yet. Start with the one this is running on.</p>
+<p class="empty small"><span class="empty-art" aria-hidden="true">{{art "machine"}}</span>No machines yet. Start with the one this is running on.</p>
 {{end}}
 
 <details class="panel" id="edit" {{if or $d.Edit (not $d.Machines)}}open{{end}}>

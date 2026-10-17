@@ -1,0 +1,5 @@
+<svg class="art" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+<circle class="s" cx="60" cy="48" r="32"/>
+<path class="ac" d="M45 49l10 10 21-23" style="stroke-width:calc(var(--art-w,2) * 1.8)"/>
+<path d="M100 14v10M95 19h10M18 66v8M14 70h8M98 74l5 5M22 22l4 4"/>
+</svg>

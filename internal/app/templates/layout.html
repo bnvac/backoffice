@@ -36,21 +36,35 @@
 
     <details class="menu">
       <summary class="btn ghost">More</summary>
-      <div class="menu-panel">
-        <a href="/workshop">Workshop</a>
-        <a href="/printing">Printing</a>
-        <a href="/filament">Filament</a>
-        <a href="/prints">Prints</a>
-        <a href="/firmware">Firmware</a>
-        <a href="/machines">Machines</a>
-        <a href="/manufacturers">Manufacturers</a>
-        <a href="/tags">Tags</a>
-        <a href="/tools">Calculators</a>
-        <a href="/labels">Print labels</a>
-        <a href="/export.csv">Export CSV</a>
-        <hr>
-        <a href="/admin">Health &amp; backup</a>
-        <a href="/activity">Activity</a>
+      <div class="menu-panel menu-grid">
+        {{/* Grouped by what you are doing, each with its section's drawing so
+             the eye finds it before reading it. */}}
+        <div class="menu-group">
+          <span class="menu-label">Make</span>
+          <a href="/workshop"><span class="menu-art">{{art "workshop"}}</span>Workshop</a>
+          <a href="/printing"><span class="menu-art">{{art "printer"}}</span>Printing</a>
+          <a href="/filament"><span class="menu-art">{{art "spool"}}</span>Filament</a>
+          <a href="/prints"><span class="menu-art">{{art "prints"}}</span>Prints</a>
+        </div>
+        <div class="menu-group">
+          <span class="menu-label">Electronics</span>
+          <a href="/firmware"><span class="menu-art">{{art "chip"}}</span>Firmware</a>
+          <a href="/machines"><span class="menu-art">{{art "machine"}}</span>Machines</a>
+          <a href="/manufacturers"><span class="menu-art">{{art "maker"}}</span>Manufacturers</a>
+          <a href="/tools"><span class="menu-art">{{art "calc"}}</span>Calculators</a>
+        </div>
+        <div class="menu-group">
+          <span class="menu-label">Organise</span>
+          <a href="/labels"><span class="menu-art">{{art "labels"}}</span>Print labels</a>
+          <a href="/tags"><span class="menu-art">{{art "shelf"}}</span>Tags</a>
+          <a href="/export.csv"><span class="menu-art">{{art "orders"}}</span>Export CSV</a>
+        </div>
+        <div class="menu-group">
+          <span class="menu-label">This install</span>
+          <a href="/admin"><span class="menu-art">{{art "machine"}}</span>Health &amp; backup</a>
+          <a href="/activity"><span class="menu-art">{{art "project"}}</span>Activity</a>
+          <a href="/welcome"><span class="menu-art">{{art "bench"}}</span>Setup tour</a>
+        </div>
       </div>
     </details>
 
@@ -116,6 +130,29 @@
 
 {{define "bottom"}}
 </main>
+{{if .Neb}}
+{{/* The assistant. Drawn hidden and shown by script, because without script
+     there is nothing it can do; the rest of the page never depends on it. */}}
+<div class="chat" data-chat hidden>
+  <button class="chat-fab" type="button" data-chat-toggle aria-expanded="false" aria-controls="chat-panel">
+    <span class="chat-fab-art" aria-hidden="true">{{art "assistant"}}</span>
+    <span class="sr-only">Ask the assistant</span>
+  </button>
+  <section class="chat-panel" id="chat-panel" role="dialog" aria-label="Assistant" hidden>
+    <header class="chat-head">
+      <span class="chat-head-art" aria-hidden="true">{{art "assistant"}}</span>
+      <div><b>Neb</b><span class="muted small">running on this machine</span></div>
+      <button class="btn tiny ghost" type="button" data-chat-forget title="Clear this thread here">Clear</button>
+      <button class="btn tiny ghost" type="button" data-chat-toggle aria-label="Close">×</button>
+    </header>
+    <ol class="chat-log" data-chat-log aria-live="polite"></ol>
+    <form class="chat-form" data-chat-form>
+      <textarea name="text" rows="1" placeholder="Ask Neb anything…" aria-label="Message"></textarea>
+      <button class="btn primary" type="submit">Send</button>
+    </form>
+  </section>
+</div>
+{{end}}
 <script src="/static/app.js" defer></script>
 </body>
 </html>

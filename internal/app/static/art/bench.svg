@@ -1,0 +1,15 @@
+<svg class="art" viewBox="0 0 220 120" aria-hidden="true" focusable="false">
+<path d="M10 92h200M24 92v22M196 92v22"/>
+<rect class="s" x="44" y="62" width="62" height="30" rx="3"/>
+<rect class="a" x="64" y="70" width="18" height="14" rx="2"/>
+<path d="M50 70h8M50 78h8M50 86h8M88 70h12M88 78h8M90 86h10M68 62v-4M74 62v-4M80 62v-4"/>
+<circle class="s" cx="160" cy="70" r="22"/>
+<circle class="a" cx="160" cy="70" r="15"/>
+<circle class="s" cx="160" cy="70" r="5"/>
+<path class="ac" d="M145 76c-9 6-18 9-30 10"/>
+<path d="M118 60l24-30M118 60l-8 10"/>
+<rect class="s" x="136" y="22" width="8" height="16" rx="3" transform="rotate(38 140 30)"/>
+<path d="M30 92V40l26-18"/>
+<path class="s" d="M48 12l22 8-8 14-22-8z"/>
+<path d="M58 34l-6 14" stroke-dasharray="2 5"/>
+</svg>

@@ -16,15 +16,18 @@ import (
 // a case or buying one until somebody says whether there is a printer.
 
 type welcomeData struct {
-	Profile   Profile
-	Step      string
-	Tools     []Tool
-	Parsed    []Tool
-	Raw       string
-	Kinds     []struct{ Slug, Label string }
-	Providers []AIProvider
-	Presets   []aiPreset
-	Items     int
+	Profile        Profile
+	Step           string
+	Rail           []railStep // the progress dots; empty on the opening page
+	Printers       []Printer
+	PrinterPresets []Preset
+	Tools          []Tool
+	Parsed         []Tool
+	Raw            string
+	Kinds          []struct{ Slug, Label string }
+	Providers      []AIProvider
+	Presets        []aiPreset
+	Items          int
 }
 
 // needsOnboarding is checked by the dashboard rather than by a global
@@ -55,12 +58,63 @@ func (a *App) handleWelcome(w http.ResponseWriter, r *http.Request) {
 
 	step := r.URL.Query().Get("step")
 	if step == "" {
-		step = "you"
+		step = "hello"
 	}
+	printers, _ := a.store.ListPrinters()
 	a.render(w, r, "welcome.html", "Welcome", welcomeData{
 		Profile: profile, Step: step, Tools: tools, Kinds: ToolKinds(),
 		Providers: providers, Presets: AIPresets, Items: items,
+		Rail: welcomeRail(step), Printers: printers, PrinterPresets: PrinterPresets,
 	})
+}
+
+// railStep is one dot on the progress rail.
+type railStep struct {
+	Key, Label string
+	State      string // done | now | later
+}
+
+// welcomeOrder is the wizard, in order. The opening page is not on the rail:
+// it is the cover, not a step.
+var welcomeOrder = []struct{ Key, Label string }{
+	{"you", "You"}, {"tools", "Tools"}, {"printer", "Printer"}, {"ai", "Assistant"}, {"done", "Done"},
+}
+
+func welcomeRail(step string) []railStep {
+	if step == "hello" {
+		return nil
+	}
+	if step == "review" {
+		step = "tools" // reviewing the pasted list is still the tools step
+	}
+	at := -1
+	for i, s := range welcomeOrder {
+		if s.Key == step {
+			at = i
+		}
+	}
+	out := make([]railStep, len(welcomeOrder))
+	for i, s := range welcomeOrder {
+		state := "later"
+		switch {
+		case i < at:
+			state = "done"
+		case i == at:
+			state = "now"
+		}
+		out[i] = railStep{s.Key, s.Label, state}
+	}
+	return out
+}
+
+// RailPercent is how far along the rail's fill is drawn.
+func (d welcomeData) RailPercent() int {
+	for i, s := range d.Rail {
+		if s.State == "now" {
+			return i * 100 / (len(d.Rail) - 1)
+		}
+	}
+	return 0
 }
 
 // handleSaveProfile writes the profile from either the wizard or the profile
@@ -212,7 +266,7 @@ func (a *App) handleConfirmTools(w http.ResponseWriter, r *http.Request) {
 		msg += fmt.Sprintf(" — %d were already there", skipped)
 	}
 	if r.FormValue("wizard") != "" {
-		redirect(w, r, "/welcome?step=ai", msg, "")
+		redirect(w, r, "/welcome?step=printer", msg, "")
 		return
 	}
 	redirect(w, r, "/workshop", msg, "")

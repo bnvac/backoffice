@@ -5,6 +5,7 @@
 <nav class="crumb"><a href="/">Dashboard</a><span class="sep">/</span><span class="here">Ideas</span></nav>
 
 <div class="folder-head">
+  <span class="head-art" aria-hidden="true">{{art "idea"}}</span>
   <h1>Idea board</h1>
   <div class="folder-actions">
     <a class="chip sm{{if eq $d.Filter ""}} on{{end}}" href="/ideas">Open</a>
@@ -103,7 +104,7 @@
   {{end}}
 </ul>
 {{else}}
-<p class="empty">Nothing on the board yet. Press <b>Read my shelf</b> — it only proposes
+<p class="empty"><span class="empty-art" aria-hidden="true">{{art "idea"}}</span>Nothing on the board yet. Press <b>Read my shelf</b> — it only proposes
 things it can name every part for, so whatever comes back is buildable tonight.</p>
 {{end}}
 

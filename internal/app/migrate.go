@@ -776,6 +776,23 @@ CREATE TABLE printer_spares (
 );
 `,
 	},
+	{
+		name: "assistant thread",
+		sql: `
+-- What was said to the assistant and what it said back, per session, so the
+-- panel can show the thread after a page change. Neb keeps its own memory of
+-- the session as well; this is only what is drawn here.
+CREATE TABLE assistant_messages (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	session    TEXT NOT NULL,
+	role       TEXT NOT NULL,
+	text       TEXT NOT NULL DEFAULT '',
+	pending    TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL
+);
+CREATE INDEX idx_assistant_session ON assistant_messages(session, id);
+`,
+	},
 }
 
 func migrate(db *sql.DB) error {

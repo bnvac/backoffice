@@ -183,6 +183,33 @@ Keys are stored in the database so they survive a restart. They're never
 rendered back into a page, never logged, never in a CSV export. They *are* in
 the backup file, so treat backups as secrets.
 
+## First run, and an assistant if you have one
+
+A fresh install opens on a short setup tour: who you are and what you work in,
+which tools you own, your printer (pick from presets — Neptune 4, Bambu, Prusa, Creality, Voron —
+and optionally its Moonraker or OctoPrint address), and whether to plug in a model.
+Every step can be skipped, and Setup tour in the More menu brings it back.
+
+If Neb, a local assistant, is running on the same machine, a chat button
+appears in the corner of every page. You can ask it about your shelf, or have it
+walk you through setup. The first message in a thread carries a short summary
+(counts only: parts, tools, printers, spools, what isn't set up) so it knows where
+it is. When Neb wants to run a tool, the panel shows **Allow** / **Don't** and
+nothing happens until you pick.
+
+Some guard rails, because Neb can run commands:
+
+- The button only appears when sign-in is on (`AUTH_PASSWORD` or accounts).
+  On an open install every page is reachable from the whole network, so the
+  assistant stays off and the setup tour explains why.
+- Only this server talks to Neb, never your browser, and `NEB_URL` must be a
+  loopback address — anything else switches the assistant off.
+- Each account gets its own thread; a shared password shares one. **Clear**
+  empties the thread here, but Neb keeps its own memory of the session.
+
+The idea board keeps using the model under Settings → Model, because it needs
+structured JSON answers rather than a conversation.
+
 ## Configuration
 
 All optional. The defaults are the intended setup.
@@ -198,6 +225,7 @@ All optional. The defaults are the intended setup.
 | `NEXAR_CLIENT_ID` / `NEXAR_CLIENT_SECRET` | *(unset)* | Octopart credentials, for part specs and distributor stock. |
 | `THINGIVERSE_TOKEN` | *(unset)* | Free token to also search Thingiverse. Printables needs nothing. |
 | `ALLOW_PRIVATE_FETCH` | *(unset)* | Let link imports reach LAN addresses. Off by default on purpose. |
+| `NEB_URL` | `http://127.0.0.1:7000` | Where Neb answers. Loopback only; `off` disables the assistant. |
 | `TZ` | `UTC` | Affects the "updated 3 hours ago" timestamps. |
 
 Named accounts are optional too — add them from Health & backup and the shared
@@ -239,7 +267,7 @@ AI endpoint you typed yourself, because that's usually `localhost`.
 ## Development
 
 ```sh
-go test ./...          # 292 tests
+go test ./...          # 300 tests
 go test -race ./...
 go vet ./...
 ```

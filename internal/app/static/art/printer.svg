@@ -1,0 +1,10 @@
+<svg class="art" viewBox="0 0 120 96" aria-hidden="true" focusable="false">
+<path d="M26 76V14h68v62"/>
+<path d="M22 14h76"/>
+<path d="M26 34h68"/>
+<rect class="s" x="51" y="26" width="17" height="16" rx="3"/>
+<path d="M59.5 42v6"/>
+<rect class="a" x="47" y="56" width="25" height="13" rx="2"/>
+<rect class="s" x="18" y="69" width="84" height="7" rx="2"/>
+<path d="M14 84h92M20 76v8M100 76v8"/>
+</svg>
