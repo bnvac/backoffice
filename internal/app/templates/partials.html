@@ -23,14 +23,13 @@
   <div class="body">
     <a class="name" href="/items/{{.ID}}">{{.Name}}</a>
     {{if .Value}}<div class="val">{{.Value}}</div>{{end}}
-    {{if .Location}}<div class="loc">{{.Location}}</div>{{end}}
-    {{if .Manufacturer}}<div class="mk">{{template "makerMark" .Manufacturer}}{{.Manufacturer}}</div>{{end}}
-    {{if .FolderName}}<div class="fold"><a href="/folders/{{.FolderRef}}">{{.FolderName}}</a></div>{{end}}
-    {{if .Interfaces}}
-    <div class="card-io">
-      {{range .Interfaces}}<span class="io-pill" title="{{.}}">{{ioIcon .}}</span>{{end}}
-    </div>
-    {{end}}
+    {{/* Where it lives on one line; what it speaks stays on the part's page,
+         where a row of interface icons has room to mean something. */}}
+    {{if or .Location .FolderName}}<div class="where">
+      {{if .Location}}<span class="loc">{{.Location}}</span>{{end}}
+      {{if .FolderName}}<a class="fold" href="/folders/{{.FolderRef}}">{{.FolderName}}</a>{{end}}
+    </div>{{end}}
+    {{if .Manufacturer}}<div class="mk">{{.Manufacturer}}</div>{{end}}
     {{if .Tags}}
     <div class="card-tags">
       {{range .Tags}}<a class="chip xs" href="/items?tag={{.Name}}">{{if .Icon}}<span class="ti">{{.Icon}}</span>{{end}}{{.Name}}</a>{{end}}
@@ -67,6 +66,13 @@
     {{end}}
   </div>
   {{end}}
+  {{/* Type is the filter people reach for; the rest fold away so the parts
+       are on screen before the filters are, and open by themselves the moment
+       one of them is in use. */}}
+  {{if or .Locations .Makers .IO .Tags}}
+  <details class="more-filters"{{if or $q.Location $q.Manufacturer $q.Tags $q.Interfaces}} open{{end}}>
+  <summary>More filters <span class="muted">· where, maker, interface, tags</span></summary>
+  {{end}}
   {{if .Locations}}
   <div class="filter-row">
     <span class="filter-label">Where</span>
@@ -101,6 +107,7 @@
     {{end}}
   </div>
   {{end}}
+  {{if or .Locations .Makers .IO .Tags}}</details>{{end}}
 </div>
 {{end}}
 {{end}}

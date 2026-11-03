@@ -1445,3 +1445,32 @@ input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-s
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
   font-weight: 600;
 }
+
+/* --- quieter chrome -------------------------------------------------------
+   The section links read as a menu, not a row of buttons: only Add is a
+   button. Cards carry what you scan for (name, value, where, stock) and leave
+   the detail to the part's page. Secondary filters fold away. */
+.topbar nav .btn.ghost { border-color: transparent; color: var(--muted); }
+.topbar nav .btn.ghost:hover { color: var(--text); background: var(--panel); }
+.topbar nav .btn.ghost.on,
+.topbar nav .btn.ghost[aria-current="page"] { color: var(--text); background: var(--panel-2); border-color: transparent; }
+.topbar nav details.menu > summary.btn.ghost { border-color: transparent; color: var(--muted); }
+
+.card .name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .where { display: flex; flex-wrap: wrap; gap: 2px 6px; font-size: 12.5px; color: var(--muted); }
+.card .where .loc::before { content: none; }
+.card .where .loc { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; }
+.card .where .fold { color: var(--muted); }
+.card .where .fold::before { content: none; }
+.card .where .fold:hover { color: var(--text); }
+.card .mk { font-size: 12px; color: var(--muted); opacity: .85; }
+.card-tags { margin-top: 4px; flex-wrap: nowrap; overflow: hidden; }
+.card-tags .chip:nth-child(n+3) { display: none; }
+
+.more-filters { border-top: 1px solid var(--line); padding-top: 8px; }
+.more-filters > summary { cursor: pointer; font-size: 13px; color: var(--text); list-style: none; display: inline-flex; gap: 6px; align-items: center; }
+.more-filters > summary::-webkit-details-marker { display: none; }
+.more-filters > summary::before { content: "+"; width: 16px; text-align: center; color: var(--muted); }
+.more-filters[open] > summary::before { content: "−"; }
+.more-filters[open] > summary { margin-bottom: 8px; }
+.more-filters .filter-row + .filter-row { margin-top: 7px; }

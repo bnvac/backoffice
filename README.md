@@ -1,5 +1,14 @@
 # Backoffice
 
+**Software for your whole workshop:** parts, tools, projects, 3D printers,
+firmware and the machines on your shelf, in one app that knows how they
+connect.
+
+```sh
+git clone https://github.com/bnvac/backoffice && cd backoffice
+docker compose up -d          # then open http://localhost:8080
+```
+
 I kept buying the same BME280 three times because I couldn't remember which
 drawer the last one went in. So I wrote an inventory for my parts shelf.
 
@@ -10,7 +19,7 @@ can actually build tonight. It draws the wiring.
 One Go binary, one SQLite file, one folder of photos. No database server, no
 `npm install`, no config file.
 
-![The inventory](docs/inventory.png)
+![The dashboard: every part with its photo, stock and shelf value](docs/dashboard.jpg)
 
 ## Running it
 
@@ -36,7 +45,7 @@ Upgrading is replacing the binary. The database migrates itself on startup.
 Adafruit, Pimoroni or The Pi Hut and it fills in the name, photo, price and
 part number by itself. Search is instant and filters stack.
 
-![A part](docs/part.png)
+![A part: stock, what is reserved, and each shop's price beside its delivery time](docs/part.jpg)
 
 **Prices and orders.** Price per shop with history, so you can see when
 something got more expensive. Orders track what's on its way and learn each
@@ -56,7 +65,7 @@ convention — red power, black ground, dashed interrupts — so the picture and
 the wire in your hand agree. The pin budget counts whether the board you picked
 has enough legs, and catches the same pin used twice.
 
-![A project and its wiring](docs/wiring.png)
+![A project's wiring, drawn from the pins you record](docs/wiring.jpg)
 
 **Labels.** QR codes and barcodes, printed to a sheet. Scanning one with a
 phone opens that part's page with the count buttons under your thumb.
@@ -81,6 +90,8 @@ The dashboard shows what each printer is doing without waiting on one that's
 switched off. It won't take an STL: a printer runs G-code, and slicing needs a
 slicer, which isn't something to hide inside a single binary.
 
+![Every filament checked against each printer you own](docs/materials.jpg)
+
 **Firmware.** The shelf counts six ESP32s; this records which one is in the
 greenhouse running what. Keep the image with its SHA-256 and the page gives
 you the command to put it back — `esptool` with the right `--chip`, `avrdude`
@@ -93,6 +104,8 @@ address, OS, the image it was installed from and that image's published
 checksum, what it runs on, and what it draws. The page checks each one with a
 TCP connection to a port you choose (no ping, so no root) and adds up the power
 — leaving out machines with no figure rather than counting them as zero.
+
+![Machines: up or down, install images and what the shelf draws](docs/machines.jpg)
 
 ![Looking for a case](docs/cases.png)
 
@@ -130,7 +143,7 @@ sensor, display, actuator — and matches them against project recipes. It only
 suggests things it can name every part for, so it offers fewer ideas than you
 might expect and none of them are imaginary.
 
-![The idea board](docs/ideas.png)
+![The idea board: builds you can make tonight from parts you own](docs/ideas.jpg)
 
 Then it tells you how to get it in a box, which depends on your tools. Printer
 and calipers: print it, here's your bed size, measure the boards first. No
